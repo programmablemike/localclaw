@@ -1,9 +1,11 @@
 # Local git worktrees created by agents and developers (see AGENTS.md)
 .worktrees/
-.claude/worktrees/
 
-# Per-user Claude Code settings. A shared .claude/settings.json is committed.
-.claude/settings.local.json
+# Coding-agent state and settings stay local. AGENTS.md is the shared contract
+# for every coding agent, so tool-specific directories do not enter the repo.
+.claude/
+.codex/
+.cursor/
 
 # Go build and test output. Binaries are named after the package directory,
 # so both the module root (localclaw) and cmd/lclaw (lclaw) are covered.

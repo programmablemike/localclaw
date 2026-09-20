@@ -1,2 +1,37 @@
 # Local git worktrees created by agents and developers (see AGENTS.md)
 .worktrees/
+
+# Coding-agent state and settings stay local. AGENTS.md is the shared contract
+# for every coding agent, so tool-specific directories do not enter the repo.
+.claude/
+.codex/
+.cursor/
+
+# Go build and test output. Binaries are named after the package directory,
+# so both the module root (localclaw) and cmd/lclaw (lclaw) are covered.
+/localclaw
+/lclaw
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go workspace files are developer-local
+go.work
+go.work.sum
+
+# Environment files with real values are never committed (AGENTS.md rule 5).
+# Keep a committed example file for documentation.
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Flox runtime state (run/, cache/, log/) is ignored by .flox/.gitignore.

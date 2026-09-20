@@ -1,0 +1,25 @@
+## Flox Environment Manifest -----------------------------------------
+##
+##   Reference: https://flox.dev/docs/reference/command-reference/manifest.toml/
+##   Enter with `flox activate`. See "Build, test, lint" in AGENTS.md.
+##
+## -------------------------------------------------------------------
+schema-version = "1.13.0"
+
+[install]
+# Pin the Go minor series. The lockfile records the exact patch release;
+# `flox upgrade` moves within 1.26.x only.
+go.pkg-path = "go"
+go.version = "1.26"
+golangci-lint.pkg-path = "golangci-lint"
+gopls.pkg-path = "gopls"
+
+[vars]
+# Stop the go command from downloading a different toolchain when go.mod
+# asks for a newer Go. This manifest is the only source of the toolchain.
+GOTOOLCHAIN = "local"
+
+[options]
+# macOS on Apple silicon for development, Linux for CI runners.
+# x86_64-darwin is omitted: the catalog does not publish current Go for it.
+systems = ["aarch64-darwin", "aarch64-linux", "x86_64-linux"]

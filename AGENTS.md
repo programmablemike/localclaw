@@ -269,12 +269,30 @@ and follow the same worktree-and-PR rule as everything else.
 
 ## Build, test, lint
 
+### Environment
+
+The toolchain is declared in `.flox/env/manifest.toml` and installed by
+[Flox](https://flox.dev). Enter the environment before running anything else:
+
+```bash
+flox activate                  # interactive shell
+flox activate -- go test ./... # a single command
+```
+
+Add tools with `flox install <package>` so the manifest and lockfile stay the
+source of truth. Do not rely on a host-installed Go. `.flox/.gitignore` already
+excludes the generated `run/`, `cache/` and `log/` directories; commit the
+rest of `.flox/`.
+
+### Commands
+
 _TODO — no code has landed yet. The `lclaw` CLI will be written in Go. When
-the first code lands, replace this section with the exact commands for installing
-dependencies, building, running the test suite, and running linters and
-formatters. Until then, "tests" means whatever verification is appropriate
-for the change (for example rendering Markdown or validating config files),
-and you must say in the PR that no automated suite exists yet._
+the first code lands, replace this subsection with the exact commands for
+installing dependencies, building, running the test suite, and running
+linters and formatters. Until then, "tests" means whatever verification is
+appropriate for the change (for example rendering Markdown or validating
+config files), and you must say in the PR that no automated suite exists
+yet._
 
 ## Bootstrapping note
 

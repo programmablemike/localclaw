@@ -43,3 +43,4 @@ together. It is read away from the keyboard.
 - [Why Diátaxis](why-diataxis.md): The reasoning behind the four-way split,
   and how frontmatter and llms.txt make that structure discoverable by agents.
 - [CLI architecture](cli-architecture.md): Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design.
+- [Deployment model](deployment-model.md): Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them.

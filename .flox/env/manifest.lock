@@ -1,0 +1,291 @@
+{
+  "lockfile-version": 1,
+  "manifest": {
+    "schema-version": "1.13.0",
+    "install": {
+      "go": {
+        "pkg-path": "go",
+        "version": "1.26"
+      },
+      "golangci-lint": {
+        "pkg-path": "golangci-lint"
+      },
+      "gopls": {
+        "pkg-path": "gopls"
+      }
+    },
+    "vars": {
+      "GOTOOLCHAIN": "local"
+    },
+    "options": {
+      "systems": [
+        "aarch64-darwin",
+        "aarch64-linux",
+        "x86_64-linux"
+      ]
+    }
+  },
+  "packages": [
+    {
+      "attr_path": "go",
+      "broken": false,
+      "derivation": "/nix/store/zyqajpfsg5pbx8riq2218xkylyxbmm58-go-1.26.7.drv",
+      "description": "Go Programming language",
+      "install_id": "go",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "go-1.26.7",
+      "pname": "go",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T04:57:59.370173Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.26.7",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ynhaddwnkhvlr6qn7scbrj1515k52gnw-go-1.26.7"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "go",
+      "broken": false,
+      "derivation": "/nix/store/a9nwjsniqhhgmvwbz45lbg1zr1n8v22g-go-1.26.7.drv",
+      "description": "Go Programming language",
+      "install_id": "go",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "go-1.26.7",
+      "pname": "go",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T05:30:54.330393Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.26.7",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/2bvkkxxp66zj839qmi7lp4f5l915asjd-go-1.26.7"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "go",
+      "broken": false,
+      "derivation": "/nix/store/4mpjija8nbzw3zlxpbv189kliwd40z2j-go-1.26.7.drv",
+      "description": "Go Programming language",
+      "install_id": "go",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "go-1.26.7",
+      "pname": "go",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T06:07:13.439335Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.26.7",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/4l04h8656as4i291mpcg38wz9m4k8acp-go-1.26.7"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "golangci-lint",
+      "broken": false,
+      "derivation": "/nix/store/r79r20yqmnnc1ybs1ra1h3647fzbqi0y-golangci-lint-2.13.2.drv",
+      "description": "Fast linters Runner for Go",
+      "install_id": "golangci-lint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "golangci-lint-2.13.2",
+      "pname": "golangci-lint",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T04:57:59.436779Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.13.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/86zcj3bjakjbbv0mw45hnfzakp4lbyj7-golangci-lint-2.13.2"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "golangci-lint",
+      "broken": false,
+      "derivation": "/nix/store/3k60ykanla1s539ky0z1alcv24nsrpbz-golangci-lint-2.13.2.drv",
+      "description": "Fast linters Runner for Go",
+      "install_id": "golangci-lint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "golangci-lint-2.13.2",
+      "pname": "golangci-lint",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T05:30:54.444005Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.13.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/y2an7133w5r04086j4jl1niwsr67rx48-golangci-lint-2.13.2"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "golangci-lint",
+      "broken": false,
+      "derivation": "/nix/store/hzajn6lwarrhvh24jfkxxhd8wdir7d5h-golangci-lint-2.13.2.drv",
+      "description": "Fast linters Runner for Go",
+      "install_id": "golangci-lint",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "golangci-lint-2.13.2",
+      "pname": "golangci-lint",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T06:07:13.552729Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.13.2",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ilazks9wgdw6vbc6q8gb2i4by1r1cr73-golangci-lint-2.13.2"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gopls",
+      "broken": false,
+      "derivation": "/nix/store/fa70rd506xibh6j213ji928ibqkp65yb-gopls-0.23.0.drv",
+      "description": "Official language server for the Go language",
+      "install_id": "gopls",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "gopls-0.23.0",
+      "pname": "gopls",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T04:57:59.460076Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.23.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/p5lfq306nsm8c9x42gs9nkgzrkkcc8f8-gopls-0.23.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gopls",
+      "broken": false,
+      "derivation": "/nix/store/pfnay79jb499jp1hz85j5w80ch8vr10p-gopls-0.23.0.drv",
+      "description": "Official language server for the Go language",
+      "install_id": "gopls",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "gopls-0.23.0",
+      "pname": "gopls",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T05:30:54.483269Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.23.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/hc1fqlx6cbqvdl3vwxc6jbhxb94r3xfw-gopls-0.23.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gopls",
+      "broken": false,
+      "derivation": "/nix/store/l0j9w680w9iqf9jpdp06vv6wzzyihjlg-gopls-0.23.0.drv",
+      "description": "Official language server for the Go language",
+      "install_id": "gopls",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "gopls-0.23.0",
+      "pname": "gopls",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T06:07:13.594578Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "0.23.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/a8362xqnzxwhdpbdhfq6q5s1afh7xxyw-gopls-0.23.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    }
+  ]
+}

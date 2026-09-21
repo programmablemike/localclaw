@@ -23,6 +23,7 @@ buildGoModule {
       ../../go.sum
       ../../VERSION
       ../../version.go
+      ../../version_test.go
       ../../cmd
       ../../internal
       ../../vendor

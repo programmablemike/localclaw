@@ -160,14 +160,16 @@ too:
 
 ### Default secrets
 
-The secrets design creates these; the Pod files only name them.
+The secrets design creates these; the Pod files only name them. Every
+injected secret is a Kubernetes Secret with the single key `value`, as the
+secrets design specifies.
 
-| Secret                   | Key        | Used by      | Environment variable     |
-| ------------------------ | ---------- | ------------ | ------------------------ |
-| `litellm-db-password`    | `password` | `litellm-db` | `POSTGRES_PASSWORD`      |
-| `litellm-master-key`     | `key`      | `litellm`    | `LITELLM_MASTER_KEY`     |
-| `litellm-database-url`   | `url`      | `litellm`    | `DATABASE_URL`           |
-| `openclaw-gateway-token` | `token`    | `openclaw`   | `OPENCLAW_GATEWAY_TOKEN` |
+| Secret                   | Key     | Used by                    | Environment variable                |
+| ------------------------ | ------- | --------------------------- | ------------------------------------ |
+| `litellm-master-key`     | `value` | `litellm`                  | `LITELLM_MASTER_KEY`                |
+| `litellm-salt-key`       | `value` | `litellm`                  | `LITELLM_SALT_KEY`                  |
+| `litellm-db-password`    | `value` | `litellm-db`, `litellm`    | `POSTGRES_PASSWORD`, `DATABASE_PASSWORD` |
+| `openclaw-gateway-token` | `value` | `openclaw`                 | `OPENCLAW_GATEWAY_TOKEN`            |
 
 ## `workloads/<name>/.containerignore`
 

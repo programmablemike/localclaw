@@ -25,7 +25,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: openclaw-gateway-token
-              key: token
+              key: value
       volumeMounts:
         - name: state
           mountPath: /home/node/.openclaw

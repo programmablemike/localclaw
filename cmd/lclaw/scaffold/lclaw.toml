@@ -6,6 +6,12 @@
 schema = 1
 provider = "libkrun"
 
+# The keychain holding the secrets lclaw injects into the machines.
+# `lclaw init` creates it; `lclaw secrets` manages its items. Point this at
+# login.keychain-db to use the login keychain instead.
+[keychain]
+path = "~/Library/Keychains/lclaw.keychain-db"
+
 [machines.infra]
 cpus = 1
 memory-mib = 1024
@@ -17,6 +23,10 @@ cpus = 2
 memory-mib = 4096
 disk-gib = 30
 workloads = ["litellm-db", "litellm", "agentgateway"]
+# Secrets this machine receives, by keychain item name. The built-in
+# entries are always available; list only the keys you supply yourself.
+# Set each one with `lclaw secrets set <name>`.
+secrets = ["anthropic-api-key"]
 
 [machines.agent]
 cpus = 2

@@ -7,6 +7,7 @@ last_reviewed: 2026-09-21
 tags: [scaffold, lclaw-toml, topology, pod, containerfile, playbook, init]
 related:
   - cli.md
+  - secrets.md
   - ../how-to/apply-a-deployment-by-hand.md
   - ../explanation/deployment-model.md
 ---
@@ -48,6 +49,7 @@ which is tagged `localhost/lclaw/<name>:latest` on the machine that runs it.
 | ---------- | -------- | ------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `schema`   | yes      | integer | `1`                                   | Format version.                                                              |
 | `provider` | yes      | string  | `libkrun`, `applehv`                  | Podman machine provider, passed as `CONTAINERS_MACHINE_PROVIDER`.            |
+| `keychain` | no       | table   | one key, `path`                       | Where the secrets lclaw injects are stored. Absent means `~/Library/Keychains/lclaw.keychain-db`. |
 | `machines` | yes      | table   | sub-tables `infra`, `services`, `agent`, each exactly once | One table per role. The roles are fixed; a fourth machine is a finding. |
 
 ### `[machines.<role>]`
@@ -58,9 +60,21 @@ which is tagged `localhost/lclaw/<name>:latest` on the machine that runs it.
 | `memory-mib` | yes      | integer          | greater than 0, in MiB                                                      | `--memory`                                 |
 | `disk-gib`   | yes      | integer          | greater than 0, in GiB                                                      | `--disk-size`                              |
 | `workloads`  | no       | array of strings | lowercase letters, digits and hyphens, not starting with a hyphen; each names a directory under `workloads/`; no name under two machines; may be empty or absent | Applied in order, torn down in reverse |
+| `secrets`    | no       | array of strings | lowercase DNS labels of at most 63 characters; must not name a built-in secret; no duplicates within a machine | Keychain items the machine receives on `up` |
 | `volumes`    | no       | array of strings | `"<host>:<guest>"`, both absolute paths; anything after a second colon is passed to Podman unchanged as mount options | One `--volume` flag each; empty means no host directory is mounted |
 
 Unknown keys anywhere in the file are rejected when the file is read.
+
+### `[keychain]`
+
+| Key    | Required | Type   | Allowed values                        | Purpose                                              |
+| ------ | -------- | ------ | -------------------------------------- | ----------------------------------------------------- |
+| `path` | no       | string | absolute, or starting with `~/`        | The keychain file. `~/` is the user's home directory. |
+
+An absent table, or an absent `path`, means
+`~/Library/Keychains/lclaw.keychain-db`. A relative path is an error naming
+the value. The catalogue, the item layout and the commands are in the
+[secrets reference](secrets.md).
 
 ### Validation
 
@@ -84,6 +98,9 @@ in the order they are checked:
 schema = 1
 provider = "libkrun"
 
+[keychain]
+path = "~/Library/Keychains/lclaw.keychain-db"
+
 [machines.infra]
 cpus = 1
 memory-mib = 1024
@@ -95,6 +112,7 @@ cpus = 2
 memory-mib = 4096
 disk-gib = 30
 workloads = ["litellm-db", "litellm", "agentgateway"]
+secrets = ["anthropic-api-key"]
 
 [machines.agent]
 cpus = 2
@@ -162,7 +180,9 @@ too:
 
 The secrets design creates these; the Pod files only name them. Every
 injected secret is a Kubernetes Secret with the single key `value`, as the
-secrets design specifies.
+secrets design specifies. The catalogue's five built-in entries are always
+present; `anthropic-api-key` is a user-supplied secret, declared in the
+default topology's `[machines.services]` table.
 
 | Secret                   | Key     | Used by                    | Environment variable                |
 | ------------------------ | ------- | --------------------------- | ------------------------------------ |

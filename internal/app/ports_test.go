@@ -4,6 +4,7 @@ import (
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
 	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
+	"github.com/programmablemike/localclaw/internal/adapters/toml"
 	"github.com/programmablemike/localclaw/internal/app"
 )
 
@@ -12,4 +13,5 @@ var (
 	_ app.EnvironmentManager = (*flox.Client)(nil)
 	_ app.FileWriter         = osfs.System{}
 	_ app.DirOpener          = osfs.System{}
+	_ app.TopologyLoader     = toml.Loader{}
 )

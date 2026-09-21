@@ -1,0 +1,8 @@
+schema = 1
+provider = "libkrun"
+
+[machines.infra]
+cpus = "two"
+memory-mib = 1024
+disk-gib = 10
+workloads = []

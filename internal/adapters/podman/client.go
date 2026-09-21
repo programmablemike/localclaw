@@ -20,9 +20,14 @@ type Client struct {
 	Runner exec.Runner
 }
 
+// run executes podman with args.
+func (c *Client) run(ctx context.Context, args ...string) (exec.Result, error) {
+	return c.Runner.Run(ctx, exec.Command{Name: "podman", Args: args})
+}
+
 // Version parses the last field of `podman --version`.
 func (c *Client) Version(ctx context.Context) (domain.Version, error) {
-	res, err := c.Runner.Run(ctx, "podman", "--version")
+	res, err := c.run(ctx, "--version")
 	if err != nil {
 		return domain.Version{}, wrap("version", err)
 	}
@@ -40,7 +45,7 @@ func (c *Client) Version(ctx context.Context) (domain.Version, error) {
 // ListMachines decodes `podman machine list --format json`, keeping only
 // Name and Running.
 func (c *Client) ListMachines(ctx context.Context) ([]domain.Machine, error) {
-	res, err := c.Runner.Run(ctx, "podman", "machine", "list", "--format", "json")
+	res, err := c.run(ctx, "machine", "list", "--format", "json")
 	if err != nil {
 		return nil, wrap("list machines", err)
 	}

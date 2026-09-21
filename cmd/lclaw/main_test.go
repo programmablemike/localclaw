@@ -266,6 +266,37 @@ func TestRunInitForceOverADirectoryFails(t *testing.T) {
 	}
 }
 
+func TestRunSecretsUsageErrorsExit2(t *testing.T) {
+	for _, args := range [][]string{
+		{"lclaw", "secrets", "set"},
+		{"lclaw", "secrets", "bogus"},
+		{"lclaw", "secrets", "describe", "a", "b"},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := run(args, &stdout, &stderr); code != 2 {
+			t.Fatalf("%v: exit code = %d, want 2; stderr %q", args, code, stderr.String())
+		}
+	}
+}
+
+// A directory with no lclaw.toml and no keychain must fail with the init
+// hint rather than reaching any real keychain on the developer's machine.
+func TestRunSecretsListWithoutAScaffoldExits1(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"lclaw", "--dir", dir, "secrets", "list"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, stderr %q", code, stderr.String())
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "lclaw:") {
+		t.Fatalf("stderr = %q, want a diagnosed error", stderr.String())
+	}
+}
+
 func TestRunInitReportsAWriteFailure(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root can write anywhere")

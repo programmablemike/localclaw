@@ -1,0 +1,22 @@
+# A valid topology with every field, including the optional volumes list.
+schema = 1
+provider = "libkrun"
+
+[machines.infra]
+cpus = 1
+memory-mib = 1024
+disk-gib = 10
+workloads = ["wireguard", "kuma-cp", "gateway"]
+
+[machines.services]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = ["litellm-db", "litellm", "agentgateway"]
+
+[machines.agent]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = ["openclaw"]
+volumes = ["/Users/me/workspace:/mnt/workspace"]

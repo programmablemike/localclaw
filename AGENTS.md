@@ -286,13 +286,22 @@ rest of `.flox/`.
 
 ### Commands
 
-_TODO — no code has landed yet. The `lclaw` CLI will be written in Go. When
-the first code lands, replace this subsection with the exact commands for
-installing dependencies, building, running the test suite, and running
-linters and formatters. Until then, "tests" means whatever verification is
-appropriate for the change (for example rendering Markdown or validating
-config files), and you must say in the PR that no automated suite exists
-yet._
+All from the repository root, inside `flox activate`.
+
+| Task                                                        | Command                                                                          |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Run every check (format, vet, staticcheck, govulncheck, tests with the race detector, tidy and vendor drift) | `./scripts/check.sh`                     |
+| Run the tests alone                                         | `go test -race ./...`                                                            |
+| Build and run a development binary                          | `go build -o bin/lclaw ./cmd/lclaw && bin/lclaw doctor`                          |
+| Build the release package hermetically                      | `flox build lclaw` (binary at `result-lclaw/bin/lclaw`)                          |
+| Add or update a dependency                                  | `go get <module>@<version> && go mod tidy && go mod vendor`; commit `go.mod`, `go.sum` and `vendor/` |
+| Regenerate CLI golden files after an intended output change | `go test ./internal/cli/ -update`, then review the diff in `internal/cli/testdata/` |
+
+CI runs `./scripts/check.sh` and `flox build lclaw` on Ubuntu and macOS.
+Dependencies follow the policy in
+[`docs/explanation/cli-architecture.md`](docs/explanation/cli-architecture.md):
+standard library first, and measure the full module graph before adding
+anything.
 
 ## Bootstrapping note
 

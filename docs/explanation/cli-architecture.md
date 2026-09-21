@@ -2,7 +2,7 @@
 title: "CLI architecture"
 description: "Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design."
 diataxis: explanation
-status: draft
+status: stable
 last_reviewed: 2026-09-20
 tags: [cli, architecture, hexagonal, go, dependencies, design-decision]
 related:
@@ -480,13 +480,32 @@ hermetic packaging and `flox publish` for distribution, which matches the
 README's statement that Flox builds and manages the agents. A thin flake can
 wrap the same expression later if `nix run` consumption ever matters.
 
+## Refinements made during implementation
+
+The code landed on 2026-09-20 and matches this page with four small changes,
+recorded so the page stays accurate.
+
+- **Version via `go:embed`.** A root package `localclaw` embeds `VERSION`,
+  so `go run`, `go test`, development builds and the Nix build all report
+  the same version without `-ldflags -X`. The Nix expression strips symbols
+  and nothing more, and `cmd/lclaw` imports the root package for the value.
+- **`ErrToolNotFound` is declared in `domain`.** `EvaluateTool` must
+  recognise "not installed", so the sentinel lives next to it;
+  `app.ErrToolNotFound` is the same value.
+- **Text output is padded by hand.** A hint line has fewer cells than a
+  check line, which splits `text/tabwriter`'s column blocks; a computed
+  name width gives the alignment shown above.
+- **staticcheck comes from the nixpkgs package `go-tools`**, and
+  golangci-lint left the manifest.
+
 ## What lands with the code
 
 - `docs/reference/cli.md`: commands, global flags, exit codes and the JSON
   output shape.
 - `docs/how-to/set-up-a-development-environment.md`: activating Flox, running
   the check script, building and running `lclaw doctor`.
-- The "Build, test, lint" placeholder in `AGENTS.md` replaced with the real
-  commands.
-- `CHANGELOG.md` with an Unreleased section, as the release procedure expects.
-- This page moves from `draft` to `stable` once the implementation matches it.
+- The "Build, test, lint" placeholder in `AGENTS.md` was replaced with the
+  real commands.
+- `CHANGELOG.md` landed with an Unreleased section, as the release procedure
+  expects.
+- This page is `stable`: the implementation matches it.

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"runtime"
 	"strings"
 	"testing"
@@ -17,9 +18,16 @@ import (
 type fakeDoctor struct {
 	report domain.Report
 	err    error
+	dir    string // the dir Run received
 }
 
-func (f *fakeDoctor) Run(ctx context.Context) (domain.Report, error) { return f.report, f.err }
+func (f *fakeDoctor) Run(ctx context.Context, dir string) (domain.Report, error) {
+	f.dir = dir
+	return f.report, f.err
+}
+
+// testDefaultDir is the DefaultDir every test passes unless it overrides Deps.
+const testDefaultDir = "/home/test/.config/lclaw"
 
 type run struct {
 	stdout, stderr bytes.Buffer
@@ -27,19 +35,34 @@ type run struct {
 	level          *slog.LevelVar
 }
 
-// execute runs the whole command tree with buffers as writers.
-func execute(t *testing.T, doc DoctorRunner, args ...string) *run {
+// executeDeps runs the whole command tree with buffers as writers, filling
+// in the writers, level and build info on d.
+func executeDeps(t *testing.T, d Deps, args ...string) *run {
 	t.Helper()
 	r := &run{level: new(slog.LevelVar)}
-	root := New(Deps{
-		Doctor: doc,
-		Build:  BuildInfo{Version: "0.1.0-dev", Commit: "abc1234", Date: "2026-09-20T12:00:00Z", Modified: true},
-		Level:  r.level,
-		Stdout: &r.stdout,
-		Stderr: &r.stderr,
-	})
+	d.Build = BuildInfo{Version: "0.1.0-dev", Commit: "abc1234", Date: "2026-09-20T12:00:00Z", Modified: true}
+	d.Level = r.level
+	d.Stdout = &r.stdout
+	d.Stderr = &r.stderr
+	root := New(d)
 	r.err = root.Run(context.Background(), append([]string{"lclaw"}, args...))
 	return r
+}
+
+// execute runs the tree with doc as the doctor and the test default dir.
+func execute(t *testing.T, doc DoctorRunner, args ...string) *run {
+	t.Helper()
+	return executeDeps(t, Deps{Doctor: doc, DefaultDir: testDefaultDir}, args...)
+}
+
+// unsetenv removes key for the test and restores it afterwards. t.Setenv
+// cannot unset, and an empty LCLAW_DIR counts as set.
+func unsetenv(t *testing.T, key string) {
+	t.Helper()
+	if v, ok := os.LookupEnv(key); ok {
+		os.Unsetenv(key)
+		t.Cleanup(func() { os.Setenv(key, v) })
+	}
 }
 
 func TestVersionText(t *testing.T) {
@@ -132,7 +155,7 @@ func TestHelpListsCommandsOnStdout(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	out := r.stdout.String()
-	if !strings.Contains(out, "doctor") || !strings.Contains(out, "version") || !strings.Contains(out, "--output") {
+	if !strings.Contains(out, "doctor") || !strings.Contains(out, "version") || !strings.Contains(out, "--output") || !strings.Contains(out, "--dir") {
 		t.Fatalf("help = %q", out)
 	}
 }

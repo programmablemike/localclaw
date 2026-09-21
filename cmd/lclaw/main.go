@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -18,7 +19,9 @@ import (
 	"github.com/programmablemike/localclaw"
 	"github.com/programmablemike/localclaw/internal/adapters/exec"
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
+	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
+	"github.com/programmablemike/localclaw/internal/adapters/toml"
 	"github.com/programmablemike/localclaw/internal/app"
 	"github.com/programmablemike/localclaw/internal/cli"
 )
@@ -35,16 +38,20 @@ func run(args []string, stdout, stderr io.Writer) int {
 	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
 
 	runner := &exec.System{Log: logger}
+	files := osfs.System{}
 	doctor := &app.Doctor{
-		Runtime: &podman.Client{Runner: runner},
-		Envs:    &flox.Client{Runner: runner},
+		Runtime:  &podman.Client{Runner: runner},
+		Envs:     &flox.Client{Runner: runner},
+		Scaffold: files,
+		Topology: toml.Loader{},
 	}
 	root := cli.New(cli.Deps{
-		Doctor: doctor,
-		Build:  buildInfo(),
-		Level:  level,
-		Stdout: stdout,
-		Stderr: stderr,
+		Doctor:     doctor,
+		Build:      buildInfo(),
+		DefaultDir: defaultDir(),
+		Level:      level,
+		Stdout:     stdout,
+		Stderr:     stderr,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -87,4 +94,15 @@ func buildInfo() cli.BuildInfo {
 		}
 	}
 	return bi
+}
+
+// defaultDir is ~/.config/lclaw, the scaffold location when neither --dir
+// nor LCLAW_DIR is set. It is empty when the home directory is unknown, and
+// the cli then asks for --dir.
+func defaultDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "lclaw")
 }

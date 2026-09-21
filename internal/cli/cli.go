@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,7 +18,7 @@ import (
 
 // DoctorRunner is the slice of the doctor use case this package needs.
 type DoctorRunner interface {
-	Run(ctx context.Context) (domain.Report, error)
+	Run(ctx context.Context, dir string) (domain.Report, error)
 }
 
 // BuildInfo is what `lclaw version` prints.
@@ -31,11 +32,12 @@ type BuildInfo struct {
 // Deps is everything the command tree needs, supplied by the composition
 // root.
 type Deps struct {
-	Doctor DoctorRunner
-	Build  BuildInfo
-	Level  *slog.LevelVar // raised to Debug by --verbose; may be nil
-	Stdout io.Writer
-	Stderr io.Writer
+	Doctor     DoctorRunner
+	Build      BuildInfo
+	DefaultDir string         // the scaffold directory when --dir and LCLAW_DIR are unset; empty when the home directory is unknown
+	Level      *slog.LevelVar // raised to Debug by --verbose; may be nil
+	Stdout     io.Writer
+	Stderr     io.Writer
 }
 
 // New builds the root command. Run it with (ctx, os.Args); it returns the
@@ -65,6 +67,12 @@ func New(d Deps) *ucli.Command {
 			&ucli.BoolFlag{
 				Name:  "verbose",
 				Usage: "log every external command to stderr",
+			},
+			&ucli.StringFlag{
+				Name:    "dir",
+				Usage:   "scaffold directory holding lclaw.toml and the workloads",
+				Value:   d.DefaultDir,
+				Sources: ucli.EnvVars("LCLAW_DIR"),
 			},
 		},
 		Before: func(ctx context.Context, cmd *ucli.Command) (context.Context, error) {
@@ -106,4 +114,15 @@ func (e *usageError) Unwrap() error { return e.err }
 func usage(cmd *ucli.Command, err error) error {
 	fmt.Fprintf(cmd.Root().ErrWriter, "lclaw: %v\nRun 'lclaw --help' for usage.\n", err)
 	return &usageError{err: err}
+}
+
+// scaffoldDir returns the --dir value, or a usage error when it is empty,
+// which happens only when the home directory is unknown and neither the
+// flag nor LCLAW_DIR is set.
+func scaffoldDir(cmd *ucli.Command) (string, error) {
+	dir := cmd.Root().String("dir")
+	if dir == "" {
+		return "", usage(cmd, errors.New("no scaffold directory: pass --dir or set LCLAW_DIR"))
+	}
+	return dir, nil
 }

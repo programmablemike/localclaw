@@ -294,10 +294,11 @@ All from the repository root, inside `flox activate`.
 | Run the tests alone                                         | `go test ./...` (the check script adds the race detector, with cgo on Linux)     |
 | Build and run a development binary                          | `go build -o bin/lclaw ./cmd/lclaw && bin/lclaw doctor`                          |
 | Build the release package hermetically                      | `flox build lclaw` (binary at `result-lclaw/bin/lclaw`)                          |
+| Validate the default scaffold as Podman input (Linux only; CI runs it) | `./scripts/scaffold-check.sh bin/lclaw` after `go build -o bin/lclaw ./cmd/lclaw` |
 | Add or update a dependency                                  | `go get <module>@<version> && go mod tidy && go mod vendor`; commit `go.mod`, `go.sum` and `vendor/` |
 | Regenerate CLI golden files after an intended output change | `go test ./internal/cli/ -update`, then review the diff in `internal/cli/testdata/` |
 
-CI runs `./scripts/check.sh` and `flox build lclaw` on Ubuntu and macOS.
+CI runs `./scripts/check.sh` and `flox build lclaw` on Ubuntu and macOS, and `./scripts/scaffold-check.sh` on Ubuntu.
 Dependencies follow the policy in
 [`docs/explanation/cli-architecture.md`](docs/explanation/cli-architecture.md):
 standard library first, and measure the full module graph before adding

@@ -36,3 +36,21 @@ jobs:
           status=0
           ./result-lclaw/bin/lclaw doctor || status=$?
           test "$status" -eq 0 || test "$status" -eq 1
+
+  scaffold:
+    name: scaffold (ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
+
+      - name: Build lclaw
+        run: flox activate -- go build -o bin/lclaw ./cmd/lclaw
+
+      - name: Validate the default scaffold with the runner's Podman
+        # Builds every default Containerfile and plays then tears down every
+        # default Pod file against the runner's own Podman, with no machine.
+        # The skip list for workloads the runner cannot start lives in the
+        # script.
+        run: ./scripts/scaffold-check.sh bin/lclaw

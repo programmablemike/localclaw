@@ -167,3 +167,18 @@ func TestDoctorCancelledBetweenSteps(t *testing.T) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 }
+
+func TestDoctorCancelledDuringMachineList(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	rt := &fakeRuntime{version: podman584, machines: allThree, cancelOn: "list", cancel: cancel}
+	d := &Doctor{Runtime: rt, Envs: &fakeEnvs{version: flox1131}}
+	r, err := d.Run(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	// The list returned, but the context ended first: no machine checks are appended.
+	if got, want := names(r), []string{"flox", "podman"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("check names = %v, want %v", got, want)
+	}
+}

@@ -110,22 +110,22 @@ func (i *Init) Run(ctx context.Context, dir string, force bool) (InitReport, err
 func (i *Init) keychainStep(ctx context.Context, dir string) KeychainOutcome {
 	fsys, err := i.Scaffold.OpenDir(dir)
 	if err != nil {
-		return KeychainOutcome{State: KeychainFailed, Err: err}
+		return KeychainOutcome{State: KeychainFailed, Err: fmt.Errorf("init: topology: %w", err)}
 	}
 	top, err := i.Topology.Load(fsys)
 	if err != nil {
-		return KeychainOutcome{State: KeychainFailed, Err: err}
+		return KeychainOutcome{State: KeychainFailed, Err: fmt.Errorf("init: topology: %w", err)}
 	}
 	out := KeychainOutcome{Path: top.KeychainPath}
 	exists, err := i.Keychain.Exists(ctx, top.KeychainPath)
 	switch {
 	case err != nil:
-		out.State, out.Err = KeychainFailed, err
+		out.State, out.Err = KeychainFailed, fmt.Errorf("init: keychain: %w", err)
 	case exists:
 		out.State = KeychainSkipped
 	default:
 		if err := i.Keychain.Create(ctx, top.KeychainPath); err != nil {
-			out.State, out.Err = KeychainFailed, err
+			out.State, out.Err = KeychainFailed, fmt.Errorf("init: keychain: %w", err)
 		} else {
 			out.State = KeychainCreated
 		}

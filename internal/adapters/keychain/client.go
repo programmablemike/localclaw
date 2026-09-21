@@ -113,13 +113,16 @@ func (c *Client) Describe(ctx context.Context, path, name string) (domain.Secret
 // Put writes the item through interactive mode: one add-generic-password
 // line on stdin with the value hexadecimal-encoded after -X, the keychain
 // path last, and -U when replacing. The value never enters an argument
-// list.
+// list. It refuses an invalid name or value before running security.
 func (c *Client) Put(ctx context.Context, path, name string, value []byte, source domain.Source, replace bool) error {
 	if err := c.require(ctx, path); err != nil {
 		return err
 	}
 	if err := domain.ValidateName(name); err != nil {
 		return fmt.Errorf("keychain: put: %w", err)
+	}
+	if err := domain.ValidateValue(value); err != nil {
+		return fmt.Errorf("keychain: put %s: %w", name, err)
 	}
 	if err := checkPath(path); err != nil {
 		return err

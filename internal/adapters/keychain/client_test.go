@@ -122,6 +122,29 @@ func TestPutRejectsBadNameAndPath(t *testing.T) {
 	}
 }
 
+func TestPutRefusesAnInvalidValue(t *testing.T) {
+	tests := []struct {
+		name  string
+		value []byte
+	}{
+		{"empty", []byte{}},
+		{"too long", bytes.Repeat([]byte("a"), domain.MaxSecretLen+1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := existingKeychain(t)
+			f := exec.NewFake()
+			c := &Client{Runner: f}
+			if err := c.Put(context.Background(), path, "k", tt.value, domain.User, false); !errors.Is(err, domain.ErrInvalidValue) {
+				t.Fatalf("err = %v, want ErrInvalidValue", err)
+			}
+			if len(f.Calls) != 0 {
+				t.Fatalf("security must not be run: %+v", f.Calls)
+			}
+		})
+	}
+}
+
 func TestGetParsesBothOutputForms(t *testing.T) {
 	tests := []struct {
 		name   string

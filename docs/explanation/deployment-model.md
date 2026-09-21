@@ -550,6 +550,12 @@ recorded so the page stays accurate.
   single key `value`; the LiteLLM pod composes `DATABASE_URL` from
   `DATABASE_*` variables so the database password is one secret, and it
   also consumes `litellm-salt-key`.
+- **`.containerignore` is a required file.** Validation and the lint test
+  require all three files in a workload directory, not only `Containerfile`
+  and `pod.yaml`, because the build context must exclude `pod.yaml`.
+- **Findings come out in role order.** The loader orders machines `infra`,
+  `services`, `agent`, then any other name alphabetically, so "file order"
+  for machine findings means role order.
 
 ## What landed with the code
 

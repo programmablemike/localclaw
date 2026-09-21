@@ -3,7 +3,7 @@ title: "Reference"
 description: "Index of reference material. Reference pages describe the machinery accurately and austerely, structured to mirror what they describe."
 diataxis: index
 status: stable
-last_reviewed: 2026-09-20
+last_reviewed: 2026-09-21
 tags: [docs, diataxis, reference]
 related:
   - ../README.md
@@ -50,3 +50,6 @@ than read, so it must be accurate, complete and predictable in structure.
 - [lclaw command reference](cli.md): Commands, global flags, environment
   variables, exit codes and the JSON output shape of the lclaw command-line
   tool.
+- [Scaffold reference](scaffold.md): Layout of the lclaw scaffold directory,
+  the lclaw.toml schema and its validation rules, the conventions every Pod
+  file keeps, and what lclaw init does to each file.

@@ -11,16 +11,23 @@ import (
 // directory.
 const TopologyFile = "lclaw.toml"
 
+// DefaultKeychainPath is the keychain holding LocalClaw's secrets when
+// lclaw.toml has no [keychain] table. The loader expands the tilde; the
+// domain never touches the file system.
+const DefaultKeychainPath = "~/Library/Keychains/lclaw.keychain-db"
+
 // Providers are the Podman machine providers a topology may name.
 var Providers = []string{"libkrun", "applehv"}
 
 // Topology is what lclaw.toml describes: which machines exist, how big they
-// are and what runs on each. Machines keep the order the loader supplies so
-// findings come out in a stable order.
+// are, what runs on each, and where the keychain holding their secrets
+// lives. Machines keep the order the loader supplies so findings come out
+// in a stable order.
 type Topology struct {
-	Schema   int
-	Provider string
-	Machines []MachineSpec
+	Schema       int
+	Provider     string
+	KeychainPath string // the [keychain] path, already expanded by the loader
+	Machines     []MachineSpec
 }
 
 // MachineSpec is one [machines.<name>] table. Name is the table key; it
@@ -31,6 +38,7 @@ type MachineSpec struct {
 	MemoryMiB int
 	DiskGiB   int
 	Workloads []Workload
+	Secrets   []string // keychain item names the machine receives on up
 	Volumes   []string // "host:guest", both absolute
 }
 
@@ -52,6 +60,18 @@ func (t Topology) Workloads() []Workload {
 	var out []Workload
 	for _, m := range t.Machines {
 		out = append(out, m.Workloads...)
+	}
+	return out
+}
+
+// DeclaredSecrets returns the secret names each machine receives, keyed by
+// the machine name as written in the file, which is the shape NewCatalogue
+// consumes. A machine that declares none is present with an empty list, so
+// a caller can tell "declared nothing" from "not in the file".
+func (t Topology) DeclaredSecrets() map[string][]string {
+	out := make(map[string][]string, len(t.Machines))
+	for _, m := range t.Machines {
+		out[m.Name] = m.Secrets
 	}
 	return out
 }
@@ -146,13 +166,19 @@ func Validate(t Topology, exists func(path string) bool) []Finding {
 	return out
 }
 
-func isRole(name string) bool {
+// ParseRole is the inverse of Role.String.
+func ParseRole(s string) (Role, bool) {
 	for _, r := range Roles() {
-		if r.String() == name {
-			return true
+		if r.String() == s {
+			return r, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+func isRole(name string) bool {
+	_, ok := ParseRole(name)
+	return ok
 }
 
 func roleNames() string {

@@ -211,3 +211,26 @@ func TestValidateReportsEverythingInFileOrder(t *testing.T) {
 		t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, want)
 	}
 }
+
+func TestTopologyDeclaredSecrets(t *testing.T) {
+	topo := Topology{Machines: []MachineSpec{
+		{Name: "services", Secrets: []string{"a", "b"}},
+		{Name: "agent"},
+	}}
+	want := map[string][]string{"services": {"a", "b"}, "agent": nil}
+	if got := topo.DeclaredSecrets(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("DeclaredSecrets() = %v, want %v", got, want)
+	}
+}
+
+func TestParseRole(t *testing.T) {
+	for _, r := range Roles() {
+		got, ok := ParseRole(r.String())
+		if !ok || got != r {
+			t.Errorf("ParseRole(%q) = %v, %v", r.String(), got, ok)
+		}
+	}
+	if _, ok := ParseRole("laptop"); ok {
+		t.Error("ParseRole(laptop) should fail")
+	}
+}

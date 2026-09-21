@@ -10,10 +10,10 @@ import (
 // nothing more for it.
 var ErrChecksFailed = errors.New("checks failed")
 
-// ErrInitFailed is returned by init when at least one file could not be
-// written. The report has already named each file, so nothing more is
-// printed for it.
-var ErrInitFailed = errors.New("some files could not be written")
+// ErrInitFailed is returned by init when a file could not be written or
+// the keychain could not be created. The report has already named what
+// failed, so nothing more is printed for it.
+var ErrInitFailed = errors.New("init did not complete")
 
 // ExitCode maps the error returned by the root command to a process exit
 // status. It is the only place that mapping lives.

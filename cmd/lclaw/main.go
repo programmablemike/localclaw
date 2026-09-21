@@ -19,6 +19,7 @@ import (
 	"github.com/programmablemike/localclaw"
 	"github.com/programmablemike/localclaw/internal/adapters/exec"
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
+	"github.com/programmablemike/localclaw/internal/adapters/keychain"
 	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
 	"github.com/programmablemike/localclaw/internal/adapters/toml"
@@ -46,8 +47,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		Topology: toml.Loader{},
 	}
 	root := cli.New(cli.Deps{
-		Doctor:     doctor,
-		Init:       &app.Init{Defaults: scaffoldFS(), Writer: files},
+		Doctor: doctor,
+		Init: &app.Init{
+			Defaults: scaffoldFS(),
+			Writer:   files,
+			Scaffold: files,
+			Topology: toml.Loader{},
+			Keychain: &keychain.Client{Runner: runner},
+		},
 		Build:      buildInfo(),
 		DefaultDir: defaultDir(),
 		Level:      level,

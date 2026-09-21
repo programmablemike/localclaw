@@ -29,7 +29,7 @@ Paths below are relative to this file. The `lclaw` CLI skeleton, `doctor` and `i
 - [Frontmatter schema](reference/frontmatter-schema.md): Fields, types and allowed values for the YAML preamble that begins every Markdown page under docs/.
 - [llms.txt index format](reference/llms-txt.md): Location, structure and entry format of docs/llms.txt, the curated index that lets agents find pages without reading every file.
 - [lclaw command reference](reference/cli.md): Commands, global flags, environment variables, exit codes and the JSON output shape of the lclaw command-line tool.
-- [Scaffold reference](reference/scaffold.md): Layout of the lclaw scaffold directory, the lclaw.toml schema and its validation rules, the conventions every Pod file keeps, and what lclaw init does to each file.
+- [Scaffold reference](reference/scaffold.md): Layout of the lclaw scaffold directory, the lclaw.toml schema and validation rules, the Pod file conventions, and what lclaw init does to each file.
 
 ## Explanation
 

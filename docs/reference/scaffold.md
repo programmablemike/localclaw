@@ -1,6 +1,6 @@
 ---
 title: "Scaffold reference"
-description: "Layout of the lclaw scaffold directory, the lclaw.toml schema and its validation rules, the conventions every Pod file keeps, and what lclaw init does to each file."
+description: "Layout of the lclaw scaffold directory, the lclaw.toml schema and validation rules, the Pod file conventions, and what lclaw init does to each file."
 diataxis: reference
 status: stable
 last_reviewed: 2026-09-21
@@ -178,10 +178,10 @@ to the machine as a tarball on every build.
 
 | Condition                              | Outcome   | Reported as     |
 | --------------------------------------- | --------- | ----------------- |
-| Path does not exist                    | written   | `written <path>`|
-| Path exists, no `--force`              | untouched | `skipped <path>`|
+| Path does not exist                    | written   | `written  <path>`|
+| Path exists, no `--force`              | untouched | `skipped  <path>`|
 | Path exists, `--force`                 | replaced  | `written <path>`|
-| Write fails (permissions, disk)        | untouched | `failed <path>: <error>` |
+| Write fails (permissions, disk)        | untouched | `failed   <path>: <error>` |
 
 Each file is written to a temporary name in the same directory and renamed
 into place, so an interrupted run leaves no half-written file. The run

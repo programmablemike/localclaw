@@ -49,6 +49,21 @@ func TestResolveEverythingPresent(t *testing.T) {
 	}
 }
 
+func TestResolveKeychainMissing(t *testing.T) {
+	kc := &fakeKeychain{exists: false}
+	r := &ResolveSecrets{Keychain: kc, Minter: &fakeMinter{err: ErrMinterUnavailable}, Random: &seqReader{}}
+	got, findings, err := r.Run(context.Background(), kcPath, servicesCatalogue(t, servicesTopology()), domain.Services)
+	if !errors.Is(err, ErrKeychainMissing) {
+		t.Fatalf("err = %v, want ErrKeychainMissing", err)
+	}
+	if got != nil || findings != nil {
+		t.Fatalf("got = %+v, findings = %+v, want both nil", got, findings)
+	}
+	if !reflect.DeepEqual(kc.calls, []string{"exists " + kcPath}) {
+		t.Fatalf("calls = %v, want only the existence check", kc.calls)
+	}
+}
+
 func TestResolveGeneratesMissing(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{
 		"anthropic-api-key":   {value: []byte("a"), source: domain.User},

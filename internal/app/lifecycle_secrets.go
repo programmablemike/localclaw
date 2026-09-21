@@ -27,8 +27,12 @@ type ResolveSecrets struct {
 }
 
 // Run returns the resolved values in catalogue order, the findings, and an
-// error only for cancellation or a broken keychain.
+// error only for cancellation or a broken keychain. It refuses when the
+// keychain file is absent, before touching it any other way.
 func (r *ResolveSecrets) Run(ctx context.Context, path string, cat domain.Catalogue, role domain.Role) ([]ResolvedSecret, []domain.Check, error) {
+	if err := requireKeychain(ctx, r.Keychain, path); err != nil {
+		return nil, nil, err
+	}
 	var resolved []ResolvedSecret
 	var findings []domain.Check
 	for _, spec := range cat.ForMachine(role) {

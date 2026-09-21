@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -47,4 +50,41 @@ func TestBuildInfoVersion(t *testing.T) {
 	if bi.Commit == "" || bi.Date == "" {
 		t.Fatalf("Commit and Date must never be empty: %+v", bi)
 	}
+}
+
+func TestDefaultDirIsUnderHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory")
+	}
+	if got, want := defaultDir(), filepath.Join(home, ".config", "lclaw"); got != want {
+		t.Fatalf("defaultDir() = %q, want %q", got, want)
+	}
+}
+
+// TestRunDoctorReportsAMissingScaffold runs the real doctor, so it also
+// executes flox and podman if they are installed; their verdicts are not
+// asserted, only the scaffold check against a directory that does not exist.
+func TestRunDoctorReportsAMissingScaffold(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "absent")
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"lclaw", "--output", "json", "doctor", "--dir", dir}, &stdout, &stderr)
+	if code != 0 && code != 1 {
+		t.Fatalf("exit code = %d, want 0 or 1; stderr %q", code, stderr.String())
+	}
+	var got struct {
+		Checks []struct{ Name, Status, Summary string }
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
+	}
+	for _, c := range got.Checks {
+		if c.Name == "scaffold" {
+			if c.Status != "warn" || c.Summary != dir+" not found" {
+				t.Fatalf("scaffold check = %+v", c)
+			}
+			return
+		}
+	}
+	t.Fatalf("no scaffold check in %s", stdout.String())
 }

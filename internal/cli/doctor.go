@@ -14,7 +14,11 @@ func doctorCommand(d Deps) *ucli.Command {
 		Usage:        "check that this host can run LocalClaw",
 		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
-			report, err := d.Doctor.Run(ctx)
+			dir, err := scaffoldDir(cmd)
+			if err != nil {
+				return err
+			}
+			report, err := d.Doctor.Run(ctx, dir)
 			if err != nil {
 				return err
 			}

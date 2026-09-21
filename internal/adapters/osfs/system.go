@@ -33,16 +33,19 @@ func (System) OpenDir(dir string) (fs.FS, error) {
 // path is left alone and reported as fs.ErrExist. The existence check and
 // the rename are two steps, so a file created by another process in between
 // is replaced; for a scaffold written by one user that window does not
-// matter.
+// matter. An existing directory at path is always a failure, overwrite or
+// not: os.Rename cannot replace a directory with a file, and os.Rename
+// itself would report that as EEXIST, which callers would mistake for
+// "already exists".
 func (System) WriteFile(path string, data []byte, overwrite bool) error {
-	if !overwrite {
-		_, err := os.Lstat(path)
-		if err == nil {
-			return fmt.Errorf("osfs: write %s: %w", path, fs.ErrExist)
-		}
-		if !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("osfs: write %s: %w", path, err)
-		}
+	info, err := os.Lstat(path)
+	switch {
+	case err == nil && info.IsDir():
+		return fmt.Errorf("osfs: write %s: is a directory", path)
+	case err == nil && !overwrite:
+		return fmt.Errorf("osfs: write %s: %w", path, fs.ErrExist)
+	case err != nil && !errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("osfs: write %s: %w", path, err)
 	}
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

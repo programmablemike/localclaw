@@ -74,6 +74,44 @@ func TestWriteFileOverwritesWhenAsked(t *testing.T) {
 	if string(got) != "default" {
 		t.Errorf("content = %q, want the new content", got)
 	}
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 1 {
+		t.Errorf("directory holds %v, want only lclaw.toml", entries)
+	}
+}
+
+func TestWriteFileRefusesADirectoryTarget(t *testing.T) {
+	for _, overwrite := range []bool{false, true} {
+		root := t.TempDir()
+		path := filepath.Join(root, "lclaw.toml")
+		if err := os.Mkdir(path, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		err := (System{}).WriteFile(path, []byte("default"), overwrite)
+		if err == nil {
+			t.Fatalf("overwrite=%v: expected an error when the target is a directory", overwrite)
+		}
+		if !strings.HasSuffix(err.Error(), "is a directory") {
+			t.Errorf("overwrite=%v: err = %q, want it to end with \"is a directory\"", overwrite, err)
+		}
+		if errors.Is(err, fs.ErrExist) {
+			t.Errorf("overwrite=%v: err = %v must not look like an existing file", overwrite, err)
+		}
+		info, statErr := os.Stat(path)
+		if statErr != nil {
+			t.Fatalf("overwrite=%v: %v", overwrite, statErr)
+		}
+		if !info.IsDir() {
+			t.Errorf("overwrite=%v: path is no longer a directory", overwrite)
+		}
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 1 || entries[0].Name() != "lclaw.toml" {
+			t.Errorf("overwrite=%v: directory holds %v, want only lclaw.toml (no temporary file left behind)", overwrite, entries)
+		}
+	}
 }
 
 func TestWriteFileReportsOtherErrors(t *testing.T) {

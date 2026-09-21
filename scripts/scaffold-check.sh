@@ -29,6 +29,17 @@ tmp=$(mktemp -d)
 dir="$tmp/lclaw"
 secrets="$tmp/secrets.yaml"
 cleanup() {
+  # podman wait/podman logs on the wire probe (below) are unguarded simple
+  # commands: under set -e a non-zero exit there jumps straight here before
+  # the pod is torn down. Tear it down first, using the wire.yaml manifest
+  # while it still exists (rm -rf "$tmp" below would otherwise delete it out
+  # from under a later `kube down`), then force-remove the pod by its fixed
+  # name as a belt-and-braces step for a kube play that failed half-way and
+  # left a pod `kube down` cannot map from a partial or missing manifest.
+  if [ -f "$tmp/wire.yaml" ]; then
+    podman kube down "$tmp/wire.yaml" >/dev/null 2>&1 || true
+  fi
+  podman pod rm --force lclaw-wire-test >/dev/null 2>&1 || true
   if [ -s "$secrets" ]; then
     for name in $(awk '$1 == "name:" { print $2 }' "$secrets"); do
       podman secret rm "$name" >/dev/null 2>&1 || true
@@ -53,6 +64,11 @@ check_init_json() {
   json=$1
   code=$2
   want_files=$3
+
+  if [ ! -s "$json" ]; then
+    echo "lclaw init produced no output" >&2
+    exit 1
+  fi
 
   if ! grep -q '"failed": \[\]' "$json"; then
     echo "lclaw init reported a failed file:" >&2

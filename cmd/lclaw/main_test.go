@@ -2,14 +2,18 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/fs"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/programmablemike/localclaw"
+	"github.com/programmablemike/localclaw/internal/adapters/exec"
 )
 
 func TestRunVersion(t *testing.T) {
@@ -110,7 +114,58 @@ func scaffoldPaths(t *testing.T) []string {
 	return paths
 }
 
+// wantInitExit is the exit code `init` must produce when it reaches the
+// keychain step. lclaw's keychain needs macOS's security tool; elsewhere
+// init still writes the files and reports every other step, but the
+// keychain step itself fails and init exits 1.
+func wantInitExit() int {
+	if runtime.GOOS != "darwin" {
+		return 1
+	}
+	if _, err := osexec.LookPath("security"); err != nil {
+		return 1
+	}
+	return 0
+}
+
+// precreateKeychain creates the empty keychain at the path the scaffold's
+// lclaw.toml names (~/Library/Keychains/lclaw.keychain-db under home), the
+// same way internal/adapters/keychain/real_test.go's TestRealKeychain does.
+// This makes init find the keychain already there and report "skipped", so
+// no test ever drives the interactive `security create-keychain` prompt
+// itself or leaves behind an empty-password keychain. It is a no-op off
+// macOS or without security on PATH, matching wantInitExit's exit-1 case.
+func precreateKeychain(t *testing.T, home string) {
+	t.Helper()
+	if runtime.GOOS != "darwin" {
+		return
+	}
+	if _, err := osexec.LookPath("security"); err != nil {
+		return
+	}
+	ctx := context.Background()
+	sys := &exec.System{}
+	path := filepath.Join(home, "Library", "Keychains", "lclaw.keychain-db")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sys.Run(ctx, exec.Command{Name: "security", Args: []string{"create-keychain", path}, Stdin: strings.NewReader("throwaway\nthrowaway\n")}); err != nil {
+		t.Fatalf("create-keychain: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = sys.Run(ctx, exec.Command{Name: "security", Args: []string{"delete-keychain", path}})
+	})
+}
+
 func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
+	// The scaffold's lclaw.toml points the keychain path at
+	// ~/Library/Keychains/lclaw.keychain-db, so HOME must be a throwaway
+	// directory for the whole test: this must never touch the developer's
+	// real keychains.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	precreateKeychain(t, home)
+
 	dir := filepath.Join(t.TempDir(), "lclaw")
 	paths := scaffoldPaths(t)
 	if len(paths) < 4 {
@@ -118,8 +173,8 @@ func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
-		t.Fatalf("first init: exit %d, stderr %q", code, stderr.String())
+	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != wantInitExit() {
+		t.Fatalf("first init: exit %d, want %d, stderr %q", code, wantInitExit(), stderr.String())
 	}
 	for _, p := range paths {
 		want, err := fs.ReadFile(scaffoldFS(), p)
@@ -136,15 +191,27 @@ func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if code := run([]string{"lclaw", "--output", "json", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
-		t.Fatalf("second init: exit %d, stderr %q", code, stderr.String())
+	if code := run([]string{"lclaw", "--output", "json", "init", "--dir", dir}, &stdout, &stderr); code != wantInitExit() {
+		t.Fatalf("second init: exit %d, want %d, stderr %q", code, wantInitExit(), stderr.String())
 	}
-	var second struct{ Written, Skipped []string }
+	var second struct {
+		Written, Skipped []string
+		Keychain         struct{ State string }
+	}
 	if err := json.Unmarshal(stdout.Bytes(), &second); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
 	}
 	if len(second.Written) != 0 || len(second.Skipped) != len(paths) {
 		t.Fatalf("second init wrote %v, skipped %d of %d", second.Written, len(second.Skipped), len(paths))
+	}
+	if wantInitExit() == 0 {
+		if second.Keychain.State != "skipped" {
+			t.Fatalf("second init keychain.state = %q, want skipped", second.Keychain.State)
+		}
+	} else {
+		if second.Keychain.State != "failed" {
+			t.Fatalf("second init keychain.state = %q, want failed", second.Keychain.State)
+		}
 	}
 
 	tomlPath := filepath.Join(dir, "lclaw.toml")
@@ -152,8 +219,8 @@ func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
 		t.Fatal(err)
 	}
 	stdout.Reset()
-	if code := run([]string{"lclaw", "init", "--dir", dir, "--force"}, &stdout, &stderr); code != 0 {
-		t.Fatalf("forced init: exit %d, stderr %q", code, stderr.String())
+	if code := run([]string{"lclaw", "init", "--dir", dir, "--force"}, &stdout, &stderr); code != wantInitExit() {
+		t.Fatalf("forced init: exit %d, want %d, stderr %q", code, wantInitExit(), stderr.String())
 	}
 	got, _ := os.ReadFile(tomlPath)
 	want, _ := fs.ReadFile(scaffoldFS(), "lclaw.toml")
@@ -163,10 +230,18 @@ func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
 }
 
 func TestRunInitForceOverADirectoryFails(t *testing.T) {
+	// The scaffold's lclaw.toml points the keychain path at
+	// ~/Library/Keychains/lclaw.keychain-db, so HOME must be a throwaway
+	// directory for the whole test: this must never touch the developer's
+	// real keychains.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	precreateKeychain(t, home)
+
 	dir := filepath.Join(t.TempDir(), "lclaw")
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
-		t.Fatalf("first init: exit %d, stderr %q", code, stderr.String())
+	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != wantInitExit() {
+		t.Fatalf("first init: exit %d, want %d, stderr %q", code, wantInitExit(), stderr.String())
 	}
 
 	tomlPath := filepath.Join(dir, "lclaw.toml")

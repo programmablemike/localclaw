@@ -47,3 +47,6 @@ than read, so it must be accurate, complete and predictable in structure.
 - [llms.txt index format](llms-txt.md): Location, structure and entry format
   of docs/llms.txt, the curated index that lets agents find pages without
   reading every file.
+- [lclaw command reference](cli.md): Commands, global flags, environment
+  variables, exit codes and the JSON output shape of the lclaw command-line
+  tool.

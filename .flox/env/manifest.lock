@@ -3,18 +3,29 @@
   "manifest": {
     "schema-version": "1.13.0",
     "install": {
+      "gcc": {
+        "pkg-path": "gcc",
+        "systems": [
+          "aarch64-linux",
+          "x86_64-linux"
+        ]
+      },
       "go": {
         "pkg-path": "go",
         "version": "1.26"
       },
-      "golangci-lint": {
-        "pkg-path": "golangci-lint"
+      "go-tools": {
+        "pkg-path": "go-tools"
       },
       "gopls": {
         "pkg-path": "gopls"
+      },
+      "govulncheck": {
+        "pkg-path": "govulncheck"
       }
     },
     "vars": {
+      "CGO_ENABLED": "0",
       "GOTOOLCHAIN": "local"
     },
     "options": {
@@ -26,6 +37,76 @@
     }
   },
   "packages": [
+    {
+      "attr_path": "gcc",
+      "broken": false,
+      "derivation": "/nix/store/27pyw666mq7gcya5zskf4lnhbds89092-gcc-wrapper-15.3.0.drv",
+      "description": "GNU Compiler Collection, version 15.3.0 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "gcc-wrapper-15.3.0",
+      "pname": "gcc",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T05:30:53.262001Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "15.3.0",
+      "outputs_to_install": [
+        "man",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "info": "/nix/store/x17rgagvkg5s7mqbv7mqp1asa6xyhc8p-gcc-wrapper-15.3.0-info",
+        "man": "/nix/store/4vw8y282g8p3f58rfxkn9k4z84rv10s9-gcc-wrapper-15.3.0-man",
+        "out": "/nix/store/z2qkl46kv87zcs2sfwfjgc75nq0hbzhf-gcc-wrapper-15.3.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gcc",
+      "broken": false,
+      "derivation": "/nix/store/lyb848yjq8pnlwkqnzlnkvjzqa4cvaqh-gcc-wrapper-15.3.0.drv",
+      "description": "GNU Compiler Collection, version 15.3.0 (wrapper script)",
+      "install_id": "gcc",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "gcc-wrapper-15.3.0",
+      "pname": "gcc",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T06:07:12.313831Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "15.3.0",
+      "outputs_to_install": [
+        "man",
+        "man",
+        "out",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "info": "/nix/store/gja6ahm2ivajy5crhjqrbcws2khxnkaa-gcc-wrapper-15.3.0-info",
+        "man": "/nix/store/x30anv345f9v2ilfm901g18rlcprbpd1-gcc-wrapper-15.3.0-man",
+        "out": "/nix/store/z4c6k0mrlkwl3s4w9ysxc8vq1wylm3ms-gcc-wrapper-15.3.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "go",
       "broken": false,
@@ -114,87 +195,87 @@
       "priority": 5
     },
     {
-      "attr_path": "golangci-lint",
+      "attr_path": "go-tools",
       "broken": false,
-      "derivation": "/nix/store/r79r20yqmnnc1ybs1ra1h3647fzbqi0y-golangci-lint-2.13.2.drv",
-      "description": "Fast linters Runner for Go",
-      "install_id": "golangci-lint",
-      "license": "GPL-3.0-or-later",
+      "derivation": "/nix/store/8kji544s3kanxal4iggmabx438jls133-go-tools-2026.2.1.drv",
+      "description": "Collection of tools and libraries for working with Go code, including linters and static analysis",
+      "install_id": "go-tools",
+      "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
-      "name": "golangci-lint-2.13.2",
-      "pname": "golangci-lint",
+      "name": "go-tools-2026.2.1",
+      "pname": "go-tools",
       "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
       "rev_count": 1076192,
       "rev_date": "2026-09-19T02:38:33Z",
-      "scrape_date": "2026-09-20T04:57:59.436779Z",
+      "scrape_date": "2026-09-20T04:57:59.393073Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.13.2",
+      "version": "2026.2.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/86zcj3bjakjbbv0mw45hnfzakp4lbyj7-golangci-lint-2.13.2"
+        "out": "/nix/store/8krraz910jasj09dxyvh7y42b0ds4n9f-go-tools-2026.2.1"
       },
       "system": "aarch64-darwin",
       "group": "toplevel",
       "priority": 5
     },
     {
-      "attr_path": "golangci-lint",
+      "attr_path": "go-tools",
       "broken": false,
-      "derivation": "/nix/store/3k60ykanla1s539ky0z1alcv24nsrpbz-golangci-lint-2.13.2.drv",
-      "description": "Fast linters Runner for Go",
-      "install_id": "golangci-lint",
-      "license": "GPL-3.0-or-later",
+      "derivation": "/nix/store/b3sgv1cdyl132l3wzbxx9chv9ca327w9-go-tools-2026.2.1.drv",
+      "description": "Collection of tools and libraries for working with Go code, including linters and static analysis",
+      "install_id": "go-tools",
+      "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
-      "name": "golangci-lint-2.13.2",
-      "pname": "golangci-lint",
+      "name": "go-tools-2026.2.1",
+      "pname": "go-tools",
       "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
       "rev_count": 1076192,
       "rev_date": "2026-09-19T02:38:33Z",
-      "scrape_date": "2026-09-20T05:30:54.444005Z",
+      "scrape_date": "2026-09-20T05:30:54.365813Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.13.2",
+      "version": "2026.2.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/y2an7133w5r04086j4jl1niwsr67rx48-golangci-lint-2.13.2"
+        "out": "/nix/store/sbxv2mcyp50sa8kxc51w2wdc07kszg48-go-tools-2026.2.1"
       },
       "system": "aarch64-linux",
       "group": "toplevel",
       "priority": 5
     },
     {
-      "attr_path": "golangci-lint",
+      "attr_path": "go-tools",
       "broken": false,
-      "derivation": "/nix/store/hzajn6lwarrhvh24jfkxxhd8wdir7d5h-golangci-lint-2.13.2.drv",
-      "description": "Fast linters Runner for Go",
-      "install_id": "golangci-lint",
-      "license": "GPL-3.0-or-later",
+      "derivation": "/nix/store/nh7w66iwxlnch724mhs8f06qq52mlvnj-go-tools-2026.2.1.drv",
+      "description": "Collection of tools and libraries for working with Go code, including linters and static analysis",
+      "install_id": "go-tools",
+      "license": "MIT",
       "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
-      "name": "golangci-lint-2.13.2",
-      "pname": "golangci-lint",
+      "name": "go-tools-2026.2.1",
+      "pname": "go-tools",
       "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
       "rev_count": 1076192,
       "rev_date": "2026-09-19T02:38:33Z",
-      "scrape_date": "2026-09-20T06:07:13.552729Z",
+      "scrape_date": "2026-09-20T06:07:13.475505Z",
       "stabilities": [
         "unstable"
       ],
       "unfree": false,
-      "version": "2.13.2",
+      "version": "2026.2.1",
       "outputs_to_install": [
         "out"
       ],
       "outputs": {
-        "out": "/nix/store/ilazks9wgdw6vbc6q8gb2i4by1r1cr73-golangci-lint-2.13.2"
+        "out": "/nix/store/xm3fmq7cqp3jf7q81i7lacz0y4n29v97-go-tools-2026.2.1"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
@@ -282,6 +363,93 @@
       ],
       "outputs": {
         "out": "/nix/store/a8362xqnzxwhdpbdhfq6q5s1afh7xxyw-gopls-0.23.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "govulncheck",
+      "broken": false,
+      "derivation": "/nix/store/4lv4wgwsfk67a8vsa82h922k1bcwf610-govulncheck-1.8.0.drv",
+      "description": "Database client and tools for the Go vulnerability database, also known as vuln",
+      "install_id": "govulncheck",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "govulncheck-1.8.0",
+      "pname": "govulncheck",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T04:57:59.482320Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/qgrixs41d3w1iyh62a5l8jm2yzc3d39r-govulncheck-1.8.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "govulncheck",
+      "broken": false,
+      "derivation": "/nix/store/y578l9c464y0vg2myv6gyj6dw2nhbsyh-govulncheck-1.8.0.drv",
+      "description": "Database client and tools for the Go vulnerability database, also known as vuln",
+      "install_id": "govulncheck",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "govulncheck-1.8.0",
+      "pname": "govulncheck",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T05:30:54.517861Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/gkvgsga9c0p9g5dzcwazr9c8x9zrb8ih-govulncheck-1.8.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "govulncheck",
+      "broken": false,
+      "derivation": "/nix/store/1hkzjy1x7a5mwmshjgnlm562rl8myycy-govulncheck-1.8.0.drv",
+      "description": "Database client and tools for the Go vulnerability database, also known as vuln",
+      "install_id": "govulncheck",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "name": "govulncheck-1.8.0",
+      "pname": "govulncheck",
+      "rev": "20b1ddd1aa5ace70c9468305030aa4f9ef79671b",
+      "rev_count": 1076192,
+      "rev_date": "2026-09-19T02:38:33Z",
+      "scrape_date": "2026-09-20T06:07:13.627954Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "1.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/hspy4kw06rj8dg0j72xhwk9kwkwsjx1w-govulncheck-1.8.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",

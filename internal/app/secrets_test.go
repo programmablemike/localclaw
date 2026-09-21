@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -212,7 +213,7 @@ func TestSecretsUpdateGenerateRefused(t *testing.T) {
 		}
 	}
 	for _, c := range kc.calls {
-		if c[:3] == "put" {
+		if strings.HasPrefix(c, "put ") {
 			t.Fatalf("keychain written despite refusal: %v", kc.calls)
 		}
 	}

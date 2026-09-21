@@ -47,4 +47,6 @@ that reach it.
 - [Add a document](add-a-document.md): Create a page in the right Diátaxis
   section, fill in the frontmatter, and register it in the indexes so agents
   can find it.
-- [Set up a development environment](set-up-a-development-environment.md): Enter the Flox environment, run the check script, build lclaw from source and run doctor against your machine.
+- [Set up a development environment](set-up-a-development-environment.md):
+  Enter the Flox environment, run the check script, build lclaw from source
+  and run doctor against your machine.

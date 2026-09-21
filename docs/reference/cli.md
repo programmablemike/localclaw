@@ -31,8 +31,8 @@ Global flags come before the command name.
 | `--verbose` |                | off     |                | Log every external command, its duration and stderr to standard error. |
 | `--help`    |                |         |                | Print usage and exit 0.                                                |
 
-An unknown flag or an invalid `--output` value prints one line to standard
-error and exits 2.
+An unknown flag or an invalid `--output` value prints the error and
+`Run 'lclaw --help' for usage.` to standard error and exits 2.
 
 ## Commands
 
@@ -66,7 +66,7 @@ version and platform.
 ### `completion`
 
 Prints a shell completion script: `lclaw completion bash`, `zsh`, `fish` or
-`powershell`.
+`pwsh`.
 
 ## Exit codes
 
@@ -91,9 +91,22 @@ Status values are `pass`, `warn` and `fail`.
 {
   "status": "warn",
   "checks": [
-    {"name": "flox", "status": "pass", "summary": "1.13.1 (minimum 1.0.0)"},
-    {"name": "podman", "status": "pass", "summary": "5.8.4 (minimum 5.0.0)"},
-    {"name": "lclaw-infra", "status": "warn", "summary": "not created", "hint": "run `lclaw up` once it is available"}
+    {
+      "name": "flox",
+      "status": "pass",
+      "summary": "1.13.1 (minimum 1.0.0)"
+    },
+    {
+      "name": "podman",
+      "status": "pass",
+      "summary": "5.8.4 (minimum 5.0.0)"
+    },
+    {
+      "name": "lclaw-infra",
+      "status": "warn",
+      "summary": "not created",
+      "hint": "run `lclaw up` once it is available"
+    }
   ]
 }
 ```

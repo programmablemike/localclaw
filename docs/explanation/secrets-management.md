@@ -9,6 +9,7 @@ related:
   - ../../README.md
   - cli-architecture.md
   - deployment-model.md
+  - ../reference/cli.md
 ---
 
 # Secrets management
@@ -372,8 +373,8 @@ The CLI design's dependency rule holds without new edges.
 - **Composition root** wires the keychain adapter and passes the Podman
   client as both ports.
 
-Two changes to the process runner from the CLI design, made before any code
-exists:
+Two changes to the process runner that landed with the CLI foundation, whose
+`Run` today takes a name and arguments and captures both output streams:
 
 - `Run` takes a command value with an optional stdin reader and a
   `Sensitive` flag. A sensitive command logs its argv and exit status but
@@ -413,8 +414,9 @@ A value never appears in a log line, an error message, JSON output other
 than `get`, or a process argument list. Cancellation is honoured between
 steps, and a cancelled interactive call kills the child.
 
-Exit codes follow the CLI design's table: 0 for success, 1 for a failed
-check or an unexpected error, 2 for a usage error, 130 for an interrupt.
+Exit codes follow the [CLI reference](../reference/cli.md): 0 for success,
+1 for a failed check or an unexpected error, 2 for a usage error, 130 for an
+interrupt.
 
 ## Testing
 

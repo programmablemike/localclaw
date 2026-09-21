@@ -44,6 +44,9 @@ func initCommand(d Deps) *ucli.Command {
 			} else {
 				renderInitText(w, report)
 			}
+			if report.Keychain.State == app.KeychainCreated && d.Prompt == nil {
+				fmt.Fprintln(cmd.Root().ErrWriter, "lclaw: warning: standard input is not a terminal, so security read the new keychain's password from it; an empty stdin creates a keychain with an empty password")
+			}
 			if !report.Ok() {
 				return ErrInitFailed
 			}

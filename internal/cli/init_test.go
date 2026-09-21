@@ -62,11 +62,63 @@ func TestInitText(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	golden(t, "init-written.txt", r.stdout.Bytes())
-	if r.stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	// executeInit never sets Deps.Prompt, so this exercises the same
+	// stdin-not-a-terminal path init hits when the keychain step created a
+	// keychain: security read its password from stdin.
+	if !strings.Contains(r.stderr.String(), "warning:") {
+		t.Fatalf("stderr = %q, want a warning about the non-terminal stdin", r.stderr.String())
 	}
 	if ini.dir != testDefaultDir || ini.force {
 		t.Fatalf("Run(dir=%q, force=%v), want default dir and no force", ini.dir, ini.force)
+	}
+}
+
+// TestInitNoWarningWhenPromptIsSet covers a terminal stdin: the composition
+// root only sets Deps.Prompt when stdin is a terminal, so no warning about
+// reading the keychain password off it is due.
+func TestInitNoWarningWhenPromptIsSet(t *testing.T) {
+	ini := &fakeInit{report: initWritten}
+	r := executeDeps(t, Deps{
+		Doctor:     &fakeDoctor{},
+		Init:       ini,
+		DefaultDir: testDefaultDir,
+		Prompt:     func(string) ([]byte, error) { return nil, nil },
+	}, "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if r.stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	}
+}
+
+// TestInitNoWarningWhenKeychainSkipped covers an existing keychain: nothing
+// was created, so nothing about the new keychain's password is due either.
+func TestInitNoWarningWhenKeychainSkipped(t *testing.T) {
+	rep := initWritten
+	rep.Keychain = app.KeychainOutcome{Path: "/home/tester/Library/Keychains/lclaw.keychain-db", State: app.KeychainSkipped}
+	r := executeInit(t, &fakeInit{report: rep}, "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if r.stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	}
+}
+
+// TestInitWarnsInJSONOutputToo covers --output json: the warning still goes
+// to stderr, and stdout stays valid, unwarnished JSON.
+func TestInitWarnsInJSONOutputToo(t *testing.T) {
+	ini := &fakeInit{report: initWritten}
+	r := executeInit(t, ini, "--output", "json", "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !strings.Contains(r.stderr.String(), "warning:") {
+		t.Fatalf("stderr = %q, want a warning about the non-terminal stdin", r.stderr.String())
+	}
+	if strings.Contains(r.stdout.String(), "warning") {
+		t.Fatalf("stdout = %q, want no mention of the warning", r.stdout.String())
 	}
 }
 

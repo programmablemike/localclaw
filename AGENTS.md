@@ -291,7 +291,7 @@ All from the repository root, inside `flox activate`.
 | Task                                                        | Command                                                                          |
 | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Run every check (format, vet, staticcheck, govulncheck, tests with the race detector, tidy and vendor drift) | `./scripts/check.sh`                     |
-| Run the tests alone                                         | `go test -race ./...`                                                            |
+| Run the tests alone                                         | `go test ./...` (the check script adds the race detector, with cgo on Linux)     |
 | Build and run a development binary                          | `go build -o bin/lclaw ./cmd/lclaw && bin/lclaw doctor`                          |
 | Build the release package hermetically                      | `flox build lclaw` (binary at `result-lclaw/bin/lclaw`)                          |
 | Add or update a dependency                                  | `go get <module>@<version> && go mod tidy && go mod vendor`; commit `go.mod`, `go.sum` and `vendor/` |

@@ -23,7 +23,13 @@ echo "==> govulncheck"
 govulncheck ./...
 
 echo "==> go test -race"
-go test -race ./...
+# The race detector is cgo-free on macOS but needs cgo, and so a C compiler,
+# on Linux. Enable cgo for this step only; builds stay static.
+race_cgo=0
+if [ "$(go env GOOS)" = "linux" ]; then
+  race_cgo=1
+fi
+CGO_ENABLED=$race_cgo go test -race ./...
 
 echo "==> go mod tidy -diff"
 go mod tidy -diff

@@ -415,9 +415,10 @@ Standard `testing` only, with `reflect.DeepEqual` and `%+v` for comparisons.
 - **Architecture:** the import-graph test described under the dependency
   rule.
 
-Tests run with the race detector. On the toolchain and platform used for this
-design the race detector works with cgo disabled, so the check script needs no
-special case.
+Tests run with the race detector. It is cgo-free on macOS but still needs cgo
+on Linux with Go 1.26, so the check script enables cgo for that one step on
+Linux and the manifest installs gcc for the Linux systems only. Builds stay
+static.
 
 ## Toolchain and build
 
@@ -482,7 +483,7 @@ wrap the same expression later if `nix run` consumption ever matters.
 
 ## Refinements made during implementation
 
-The code landed on 2026-09-20 and matches this page with five small changes,
+The code landed on 2026-09-20 and matches this page with six small changes,
 recorded so the page stays accurate.
 
 - **Version via `go:embed`.** A root package `localclaw` embeds `VERSION`,
@@ -500,6 +501,10 @@ recorded so the page stays accurate.
 - **`subPackages` is not set in the Nix expression.** Limiting it to
   `cmd/lclaw` would also limit the check phase to that package; building
   every package installs only the one `main` and tests all of them.
+- **The race detector needs cgo on Linux.** The first CI run showed that
+  `go test -race` aborts under `CGO_ENABLED=0` on Linux with Go 1.26, while
+  macOS is cgo-free. The check script enables cgo for that step on Linux only
+  and the manifest installs gcc for the Linux systems.
 
 ## What lands with the code
 

@@ -28,8 +28,11 @@ jobs:
         run: flox build lclaw
 
       - name: Smoke test the built binary
-        # doctor exits 1 on runners: no Podman on macOS, an old Podman on
-        # Ubuntu. That is the correct verdict, so only 1 is accepted.
+        # doctor reports a verdict with exit 0 (pass or warn) or 1 (a failed
+        # check, the usual case on runners with no or an old Podman). Any
+        # other status is a usage error or a crash and fails the job.
         run: |
           ./result-lclaw/bin/lclaw version
-          ./result-lclaw/bin/lclaw doctor || test $? -eq 1
+          status=0
+          ./result-lclaw/bin/lclaw doctor || status=$?
+          test "$status" -eq 0 || test "$status" -eq 1

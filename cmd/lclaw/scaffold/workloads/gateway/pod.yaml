@@ -1,0 +1,19 @@
+# LocalClaw: ingress/egress gateway pod (provisional until the network design
+# lands, which will add the data-plane token and control-plane address). 8080
+# is the listener the host reaches the dashboards through.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: gateway
+      image: localhost/lclaw/gateway:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 8080
+          hostPort: 8080

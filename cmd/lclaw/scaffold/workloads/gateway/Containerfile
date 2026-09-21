@@ -1,0 +1,7 @@
+# LocalClaw: ingress/egress gateway (provisional until the network design lands).
+# Derived from the upstream image so that customizing is an edit here, not a
+# new build system. Add RUN, COPY or ENV instructions below the FROM line and
+# rebuild by re-running `lclaw up` or the manual procedure in
+# docs/how-to/apply-a-deployment-by-hand.md. The digest pins the exact image;
+# a LocalClaw release bumps it.
+FROM docker.io/kumahq/kuma-dp:2.14.5@sha256:85e4889301b8ebe8ea92807e154128e94f6f5275267752f347fad1c796709f1b

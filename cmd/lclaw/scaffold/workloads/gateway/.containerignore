@@ -1,0 +1,3 @@
+# This directory is the image's build context and travels to the machine on
+# every build. pod.yaml is applied separately and has no place in the image.
+pod.yaml

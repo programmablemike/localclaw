@@ -1,0 +1,54 @@
+# LocalClaw: LiteLLM proxy. Its configuration is the ConfigMap below,
+# mounted at /etc/litellm; the master key and the database URL come from
+# secrets by name. Provider API keys arrive the same way once the secrets
+# design lands.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+data:
+  config.yaml: |
+    # LiteLLM proxy configuration. Add models under model_list; provider API
+    # keys are environment variables from secrets, never values in this file.
+    model_list: []
+    litellm_settings:
+      drop_params: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: litellm
+  labels:
+    app.kubernetes.io/name: litellm
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: litellm
+      image: localhost/lclaw/litellm:latest
+      imagePullPolicy: Never
+      args:
+        - --config
+        - /etc/litellm/config.yaml
+        - --port
+        - "4000"
+      env:
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-master-key
+              key: key
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: litellm-database-url
+              key: url
+      ports:
+        - containerPort: 4000
+      volumeMounts:
+        - name: config
+          mountPath: /etc/litellm
+  volumes:
+    - name: config
+      configMap:
+        name: litellm-config

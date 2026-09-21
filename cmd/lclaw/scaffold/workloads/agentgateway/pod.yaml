@@ -1,0 +1,18 @@
+# LocalClaw: Agent Gateway. 3000 is the proxy listener and 15000 the admin
+# UI; neither is published to the host, because only infra publishes ports.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: agentgateway
+  labels:
+    app.kubernetes.io/name: agentgateway
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: agentgateway
+      image: localhost/lclaw/agentgateway:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 3000
+        - containerPort: 15000

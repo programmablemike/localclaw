@@ -1,0 +1,23 @@
+# LocalClaw: Kuma control plane pod (provisional until the network design
+# lands). Runs a single zone with the default in-memory store; 5681 is the
+# API and GUI, published to the host because infra is the only machine that
+# publishes ports, and 5678 is the data-plane server.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kuma-cp
+  labels:
+    app.kubernetes.io/name: kuma-cp
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: kuma-cp
+      image: localhost/lclaw/kuma-cp:latest
+      imagePullPolicy: Never
+      args:
+        - run
+      ports:
+        - containerPort: 5681
+          hostPort: 5681
+        - containerPort: 5678

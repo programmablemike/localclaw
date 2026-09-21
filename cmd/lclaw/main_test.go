@@ -162,6 +162,35 @@ func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
 	}
 }
 
+func TestRunInitForceOverADirectoryFails(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "lclaw")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("first init: exit %d, stderr %q", code, stderr.String())
+	}
+
+	tomlPath := filepath.Join(dir, "lclaw.toml")
+	if err := os.Remove(tomlPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(tomlPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	code := run([]string{"lclaw", "init", "--dir", dir, "--force"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout %q stderr %q", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "failed   lclaw.toml: ") {
+		t.Fatalf("stdout = %q, want a failed line for lclaw.toml", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "is a directory") {
+		t.Fatalf("stdout = %q, want the failure to say lclaw.toml is a directory", stdout.String())
+	}
+}
+
 func TestRunInitReportsAWriteFailure(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("root can write anywhere")

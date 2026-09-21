@@ -6,7 +6,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 echo "==> gofmt"
-unformatted=$(find . -name '*.go' -not -path './vendor/*' -not -path './.flox/*' -print0 | xargs -0 gofmt -l)
+unformatted=$(find . -name '*.go' -not -path './vendor/*' -not -path './.*/*' -print0 | xargs -0 gofmt -l)
 if [ -n "$unformatted" ]; then
   echo "$unformatted"
   echo "gofmt: the files above need formatting (run: gofmt -w <file>)" >&2

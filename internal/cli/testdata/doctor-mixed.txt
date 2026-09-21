@@ -1,0 +1,9 @@
+PASS  flox            1.13.1 (minimum 1.0.0)
+PASS  podman          5.8.4 (minimum 5.0.0)
+WARN  lclaw-infra     not created
+      hint: run `lclaw up` once it is available
+WARN  lclaw-services  not created
+      hint: run `lclaw up` once it is available
+PASS  lclaw-agent     running
+
+3 passed, 2 warnings, 0 failed

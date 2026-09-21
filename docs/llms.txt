@@ -32,6 +32,7 @@ Paths below are relative to this file. No code has landed yet, so tutorials and 
 - [Explanation](explanation/README.md): Index of understanding-oriented discussion. Explanation pages say why things are the way they are, with context, trade-offs and alternatives.
 - [Why Diátaxis](explanation/why-diataxis.md): The reasoning behind the four-way split, and how frontmatter and llms.txt make that structure discoverable by agents.
 - [CLI architecture](explanation/cli-architecture.md): Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design.
+- [Secrets management](explanation/secrets-management.md): Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own.
 
 ## Optional
 

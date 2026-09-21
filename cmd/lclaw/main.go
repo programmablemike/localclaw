@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +23,7 @@ import (
 	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
 	"github.com/programmablemike/localclaw/internal/adapters/toml"
+	"github.com/programmablemike/localclaw/internal/adapters/tty"
 	"github.com/programmablemike/localclaw/internal/app"
 	"github.com/programmablemike/localclaw/internal/cli"
 )
@@ -39,27 +41,49 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	runner := &exec.System{Log: logger}
 	files := osfs.System{}
-	doctor := &app.Doctor{
-		Runtime:  &podman.Client{Runner: runner},
-		Envs:     &flox.Client{Runner: runner},
-		Scaffold: files,
-		Topology: toml.Loader{},
-	}
-	root := cli.New(cli.Deps{
-		Doctor: doctor,
+	loader := toml.Loader{}
+	kc := &keychain.Client{Runner: runner}
+	podmanClient := &podman.Client{Runner: runner}
+
+	deps := cli.Deps{
+		Doctor: &app.Doctor{
+			Runtime:  podmanClient,
+			Envs:     &flox.Client{Runner: runner},
+			Scaffold: files,
+			Topology: loader,
+			Keychain: kc,
+		},
 		Init: &app.Init{
 			Defaults: scaffoldFS(),
 			Writer:   files,
 			Scaffold: files,
-			Topology: toml.Loader{},
-			Keychain: &keychain.Client{Runner: runner},
+			Topology: loader,
+			Keychain: kc,
+		},
+		Secrets: &app.Secrets{
+			Scaffold: files,
+			Topology: loader,
+			Keychain: kc,
+			Target:   podmanClient,
+			Minter:   app.UnavailableMinter{},
+			Random:   rand.Reader,
 		},
 		Build:      buildInfo(),
 		DefaultDir: defaultDir(),
 		Level:      level,
 		Stdout:     stdout,
 		Stderr:     stderr,
-	})
+		Stdin:      os.Stdin,
+	}
+	// The prompt is offered only when stdin is a terminal; otherwise the
+	// value comes from the pipe. It writes to stderr so stdout stays clean
+	// for `secrets get` and for --output json.
+	if tty.IsTerminal(os.Stdin) {
+		deps.Prompt = func(prompt string) ([]byte, error) {
+			return tty.ReadPassword(os.Stdin, stderr, prompt)
+		}
+	}
+	root := cli.New(deps)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

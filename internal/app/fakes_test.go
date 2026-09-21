@@ -223,16 +223,19 @@ func (m *fakeMinter) Mint(ctx context.Context, name string) ([]byte, error) {
 
 func (m *fakeMinter) Revoke(ctx context.Context, name string) error { return nil }
 
-// servicesTopology declares one provider key on the services machine.
+// servicesTopology declares one provider key on the services machine. Every
+// machine carries the minimum CPUs, memory and disk domain.Validate
+// requires, so a topology built from it passes validation cleanly and
+// doctor's keychain and secret checks run rather than reporting findings.
 func servicesTopology() domain.Topology {
 	return domain.Topology{
 		Schema:       1,
 		Provider:     "libkrun",
 		KeychainPath: kcPath,
 		Machines: []domain.MachineSpec{
-			{Name: "infra"},
-			{Name: "services", Secrets: []string{"anthropic-api-key"}},
-			{Name: "agent"},
+			{Name: "infra", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10},
+			{Name: "services", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10, Secrets: []string{"anthropic-api-key"}},
+			{Name: "agent", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10},
 		},
 	}
 }

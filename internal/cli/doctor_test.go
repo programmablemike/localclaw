@@ -36,6 +36,8 @@ func golden(t *testing.T, name string, got []byte) {
 var mixed = domain.Report{Checks: []domain.Check{
 	{Name: "flox", Status: domain.Pass, Summary: "1.13.1 (minimum 1.0.0)"},
 	{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.8.0)"},
+	{Name: "keychain", Status: domain.Pass, Summary: "/kc/lclaw.keychain-db"},
+	{Name: "anthropic-api-key", Status: domain.Pass, Summary: "set"},
 	{Name: "lclaw-infra", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
 	{Name: "lclaw-services", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
 	{Name: "lclaw-agent", Status: domain.Pass, Summary: "running"},

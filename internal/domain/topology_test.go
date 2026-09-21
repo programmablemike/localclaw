@@ -153,6 +153,11 @@ func TestValidateRules(t *testing.T) {
 			want:   []Finding{{"machines.agent.workloads", `"" is not a valid workload name; use lowercase letters, digits and hyphens`}},
 		},
 		{
+			name:   "leading hyphen",
+			mutate: func(t *Topology) { t.Machines[2].Workloads = []Workload{"-bad"} },
+			want:   []Finding{{"machines.agent.workloads", `"-bad" is not a valid workload name; use lowercase letters, digits and hyphens`}},
+		},
+		{
 			name:   "missing files",
 			mutate: func(*Topology) {},
 			exists: func(top Topology) func(string) bool {

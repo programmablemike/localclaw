@@ -9,8 +9,9 @@ Run OpenClaw agents in isolated containers on macOS.
 LocalClaw has two goals: isolate the agent from the host machine, and make
 setup and operation easy and reliable. Everything else follows from those two.
 
-> **Status:** pre-alpha. No code or releases have landed yet. This README
-> describes the intended design.
+> **Status:** pre-alpha. The `lclaw` skeleton and `lclaw doctor` exist; no
+> release has been cut. The rest of this README describes the intended
+> design.
 
 ## Architecture
 
@@ -70,8 +71,11 @@ flowchart LR
 ## The `lclaw` CLI
 
 `lclaw` is a Go CLI that manages the lifecycle of the Podman machines and
-provides helpers for one-off operations and troubleshooting. Installation and
-usage docs will land with the first release.
+provides helpers for one-off operations and troubleshooting. Build it from
+source with
+[Set up a development environment](docs/how-to/set-up-a-development-environment.md);
+the commands that exist are in the
+[command reference](docs/reference/cli.md).
 
 ## Documentation
 

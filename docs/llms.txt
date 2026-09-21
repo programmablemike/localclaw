@@ -4,7 +4,7 @@
 
 Contributor and agent rules live in AGENTS.md at the repository root: work in a git worktree, land every change through a pull request, use Conventional Commits, follow Diátaxis for documentation, and version releases with Semantic Versioning. Read it before changing anything.
 
-Paths below are relative to this file. The `lclaw` CLI skeleton and `doctor` command exist; tutorials are still empty. The documentation system itself is fully documented.
+Paths below are relative to this file. The `lclaw` CLI skeleton, `doctor` and `init` commands exist; tutorials are still empty. The documentation system itself is fully documented.
 
 ## Start here
 
@@ -21,6 +21,7 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and `doctor` com
 - [How-to guides](how-to/README.md): Index of task-oriented guides. A how-to guide gives a competent reader the steps to accomplish one real goal.
 - [Add a document](how-to/add-a-document.md): Create a page in the right Diátaxis section, fill in the frontmatter, and register it in the indexes so agents can find it.
 - [Set up a development environment](how-to/set-up-a-development-environment.md): Enter the Flox environment, run the check script, build lclaw from source and run doctor against your machine.
+- [Apply a deployment by hand](how-to/apply-a-deployment-by-hand.md): Create, start and load one LocalClaw machine from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough.
 
 ## Reference
 
@@ -28,6 +29,7 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and `doctor` com
 - [Frontmatter schema](reference/frontmatter-schema.md): Fields, types and allowed values for the YAML preamble that begins every Markdown page under docs/.
 - [llms.txt index format](reference/llms-txt.md): Location, structure and entry format of docs/llms.txt, the curated index that lets agents find pages without reading every file.
 - [lclaw command reference](reference/cli.md): Commands, global flags, environment variables, exit codes and the JSON output shape of the lclaw command-line tool.
+- [Scaffold reference](reference/scaffold.md): Layout of the lclaw scaffold directory, the lclaw.toml schema and its validation rules, the conventions every Pod file keeps, and what lclaw init does to each file.
 
 ## Explanation
 

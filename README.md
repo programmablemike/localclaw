@@ -9,23 +9,26 @@ Run OpenClaw agents in isolated containers on macOS.
 LocalClaw has two goals: isolate the agent from the host machine, and make
 setup and operation easy and reliable. Everything else follows from those two.
 
-> **Status:** pre-alpha. The `lclaw` skeleton and `lclaw doctor` exist; no
-> release has been cut. The rest of this README describes the intended
-> design.
+> **Status:** pre-alpha. The `lclaw` skeleton, `lclaw doctor` and `lclaw init`
+> exist; no release has been cut. The rest of this README describes the
+> intended design.
 
 ## Architecture
 
-Agents are built and managed with [Flox](https://flox.dev) and run as
-containers under [Podman](https://podman.io). LocalClaw splits the system
-across three Podman machines (VMs) joined by a
+Every workload runs from its upstream container image, customised through a
+Containerfile in a scaffold directory that `lclaw init` writes, and is
+applied as a Kubernetes Pod file with `podman kube play`.
+[Flox](https://flox.dev) provides the toolchain and packages `lclaw`;
+[Podman](https://podman.io) runs the containers. LocalClaw splits the
+system across three Podman machines (VMs) joined by a
 [WireGuard](https://www.wireguard.com) overlay, with [Kuma](https://kuma.io)
-providing the service mesh and access control. Each machine isolates one set of
-responsibilities.
+providing the service mesh and access control. Each machine isolates one
+set of responsibilities.
 
 | Machine    | Runs                                                                               | Role                                                     |
 | ---------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | `infra`    | WireGuard server, Kuma control plane, ingress/egress gateway                       | Overlay network, mesh policy, and the only way in or out |
-| `services` | [LiteLLM](https://github.com/BerriAI/litellm) proxy (stateful mode), Agent Gateway | Shared model and agent gateway services                  |
+| `services` | [LiteLLM](https://github.com/BerriAI/litellm) proxy (stateful mode) with its [Postgres](https://www.postgresql.org) database, Agent Gateway | Shared model and agent gateway services                  |
 | `agent`    | An OpenClaw agent                                                                  | The untrusted workload                                   |
 
 ### Network model
@@ -75,7 +78,10 @@ provides helpers for one-off operations and troubleshooting. Build it from
 source with
 [Set up a development environment](docs/how-to/set-up-a-development-environment.md);
 the commands that exist are in the
-[command reference](docs/reference/cli.md).
+[command reference](docs/reference/cli.md). The files it writes and the
+podman sequence that applies them are in the
+[scaffold reference](docs/reference/scaffold.md) and
+[Apply a deployment by hand](docs/how-to/apply-a-deployment-by-hand.md).
 
 ## Documentation
 

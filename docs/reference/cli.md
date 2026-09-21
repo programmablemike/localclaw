@@ -94,7 +94,9 @@ keychain's password on the terminal, so lclaw never sees it; when standard
 input is not a terminal it reads the password and its confirmation as two
 lines. An existing keychain is reported as skipped and is never
 overwritten, including under `--force`, because overwriting one destroys
-every secret in it.
+every secret in it. When a keychain is created and standard input is not a
+terminal, `init` prints a warning to stderr, because an empty stdin makes
+`security` create the keychain with an empty password.
 
 Text output lists `written`, `skipped` and `failed` paths in that order,
 then the keychain's own `created`, `skipped` or `failed` line, then

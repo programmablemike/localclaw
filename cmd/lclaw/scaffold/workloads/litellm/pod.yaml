@@ -1,0 +1,69 @@
+# LocalClaw: LiteLLM proxy. Its configuration is the ConfigMap below,
+# mounted at /etc/litellm; the master key, the salt key and the database
+# password come from secrets by name. LiteLLM composes DATABASE_URL from
+# the DATABASE_* variables below, so the password stays one secret.
+# Provider API keys arrive the same way once the secrets implementation
+# lands.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+data:
+  config.yaml: |
+    # LiteLLM proxy configuration. Add models under model_list; provider API
+    # keys are environment variables from secrets, never values in this file.
+    model_list: []
+    litellm_settings:
+      drop_params: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: litellm
+  labels:
+    app.kubernetes.io/name: litellm
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: litellm
+      image: localhost/lclaw/litellm:latest
+      imagePullPolicy: Never
+      args:
+        - --config
+        - /etc/litellm/config.yaml
+        - --port
+        - "4000"
+      env:
+        - name: LITELLM_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-master-key
+              key: value
+        - name: LITELLM_SALT_KEY
+          valueFrom:
+            secretKeyRef:
+              name: litellm-salt-key
+              key: value
+        # Provisional: how one pod resolves another by name on a machine is
+        # settled by the network design; the value follows it.
+        - name: DATABASE_HOST
+          value: litellm-db
+        - name: DATABASE_USERNAME
+          value: litellm
+        - name: DATABASE_NAME
+          value: litellm
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: litellm-db-password
+              key: value
+      ports:
+        - containerPort: 4000
+      volumeMounts:
+        - name: config
+          mountPath: /etc/litellm
+  volumes:
+    - name: config
+      configMap:
+        name: litellm-config

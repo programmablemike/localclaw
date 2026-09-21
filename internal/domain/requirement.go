@@ -20,8 +20,8 @@ type Requirement struct {
 var (
 	PodmanRequirement = Requirement{
 		Tool:        "podman",
-		Min:         Version{Major: 5},
-		InstallHint: "install Podman 5 or newer from https://podman.io/docs/installation",
+		Min:         Version{Major: 5, Minor: 8},
+		InstallHint: "install Podman 5.8 or newer from https://podman.io/docs/installation",
 	}
 	FloxRequirement = Requirement{
 		Tool:        "flox",

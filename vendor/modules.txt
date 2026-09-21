@@ -1,3 +1,7 @@
+# github.com/BurntSushi/toml v1.6.0
+## explicit; go 1.18
+github.com/BurntSushi/toml
+github.com/BurntSushi/toml/internal
 # github.com/urfave/cli/v3 v3.13.0
 ## explicit; go 1.22
 github.com/urfave/cli/v3

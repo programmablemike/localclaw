@@ -2,12 +2,15 @@
 title: "Deployment model"
 description: "Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them."
 diataxis: explanation
-status: draft
-last_reviewed: 2026-09-20
+status: stable
+last_reviewed: 2026-09-21
 tags: [deployment, podman, containers, kube-play, scaffold, iac, design-decision]
 related:
   - ../../README.md
   - cli-architecture.md
+  - ../reference/scaffold.md
+  - ../reference/cli.md
+  - ../how-to/apply-a-deployment-by-hand.md
 ---
 
 # Deployment model
@@ -194,7 +197,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: openclaw-gateway-token
-              key: token
+              key: value
       volumeMounts:
         - name: state
           mountPath: /home/node/.openclaw
@@ -504,12 +507,62 @@ in and works remotely.
   by name.
 - The lifecycle design inherits the apply sequence and the topology type.
 
-## What lands with the code
+## Refinements made during implementation
 
-- `docs/reference/scaffold.md`: the layout, the `lclaw.toml` schema, the Pod
-  file conventions, and the `init` command's flags and JSON output.
-- `docs/how-to/apply-a-deployment-by-hand.md`: the `podman` sequence above
-  as a procedure, for troubleshooting and for people who do not use `lclaw`.
+The code landed on 2026-09-20 and matches this page with these changes,
+recorded so the page stays accurate.
+
+- **`--dir` is a global flag**, not an `init` flag, because `doctor` reads
+  the same directory. `lclaw init --dir X` still works, since global flags
+  may follow the command name.
+- **Doctor statuses.** A missing scaffold directory is a warning, the
+  expected state before the first `init`, like a machine that is not
+  created; the topology check is then a warning saying it was skipped. A
+  topology that cannot be read or decoded is one failed check; each
+  validation finding is its own failed check named `topology`, so every
+  problem shows and JSON consumers get an array. Checks run in the order
+  `flox`, `podman`, `scaffold`, `topology`, machines.
+- **Two more validation rules.** `schema` must be `1`, and a workload name
+  is lowercase letters, digits and hyphens, because it becomes a directory
+  and an image tag.
+- **`Validate` takes an `exists` function** rather than an `fs.FS`, so the
+  domain performs no I/O; callers pass a closure over a file system or a
+  map.
+- **TOML decoder.** `github.com/BurntSushi/toml` v1.6.0 and
+  `github.com/pelletier/go-toml/v2` v2.4.3 were both measured on
+  2026-09-20: one module in the graph and one linked each, no extras.
+  BurntSushi was chosen because `Decode` returns metadata whose
+  `Undecoded()` lists every unknown key, and because the adapter reads the
+  file itself so a missing file keeps reporting not-found. The loader
+  takes an `fs.FS` rooted at the scaffold, opened by a `DirOpener` port, so
+  only the `osfs` adapter touches the operating system.
+- **The init text report is grouped**: written, then skipped, then failed
+  lines, then one summary line naming the directory.
+- **Postgres 18** keeps its cluster under `/var/lib/postgresql`, so the
+  `litellm-db` volume mounts there rather than at `/var/lib/postgresql/data`.
+- **Placeholder secrets in CI.** `podman kube play` refuses a pod whose
+  `secretKeyRef` names a missing secret and reads secrets saved from a
+  Kubernetes `Secret` document, so the integration script generates one
+  such document per referenced name from the Pod files and plays it first.
+- **Image tags** were chosen on 2026-09-20 as the newest stable tag of each
+  upstream; the [scaffold reference](../reference/scaffold.md) lists them.
+- **Secret keys follow the secrets design.** Every injected secret has the
+  single key `value`; the LiteLLM pod composes `DATABASE_URL` from
+  `DATABASE_*` variables so the database password is one secret, and it
+  also consumes `litellm-salt-key`.
+- **`.containerignore` is a required file.** Validation and the lint test
+  require all three files in a workload directory, not only `Containerfile`
+  and `pod.yaml`, because the build context must exclude `pod.yaml`.
+- **Findings come out in role order.** The loader orders machines `infra`,
+  `services`, `agent`, then any other name alphabetically, so "file order"
+  for machine findings means role order.
+
+## What landed with the code
+
+- [`docs/reference/scaffold.md`](../reference/scaffold.md): the layout, the
+  `lclaw.toml` schema and validation rules, the Pod file conventions, the
+  default images, ports and secrets, and what `init` does to each file.
+- [`docs/how-to/apply-a-deployment-by-hand.md`](../how-to/apply-a-deployment-by-hand.md):
+  the `podman` sequence above as a procedure.
 - The README changes listed under consequences.
-- This page moves from `draft` to `stable` once the implementation matches
-  it.
+- This page is `stable`: the implementation matches it.

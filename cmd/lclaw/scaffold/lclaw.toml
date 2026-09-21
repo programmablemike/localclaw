@@ -1,0 +1,28 @@
+# LocalClaw topology. The three roles are fixed; edit sizes and workload
+# lists. Workloads are applied in the order listed and torn down in reverse.
+# cpus, memory-mib and disk-gib map onto `podman machine init --cpus`,
+# `--memory` and `--disk-size`. The schema is documented in
+# docs/reference/scaffold.md of the LocalClaw repository.
+schema = 1
+provider = "libkrun"
+
+[machines.infra]
+cpus = 1
+memory-mib = 1024
+disk-gib = 10
+workloads = ["wireguard", "kuma-cp", "gateway"]
+
+[machines.services]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = ["litellm-db", "litellm", "agentgateway"]
+
+[machines.agent]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = ["openclaw"]
+# Host directories to mount into the machine, as "host:guest" pairs. Empty by
+# default: nothing on the host is visible to the agent unless listed here.
+# volumes = ["/Users/me/workspace:/mnt/workspace"]

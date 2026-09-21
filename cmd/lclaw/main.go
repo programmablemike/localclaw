@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -18,7 +19,9 @@ import (
 	"github.com/programmablemike/localclaw"
 	"github.com/programmablemike/localclaw/internal/adapters/exec"
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
+	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
+	"github.com/programmablemike/localclaw/internal/adapters/toml"
 	"github.com/programmablemike/localclaw/internal/app"
 	"github.com/programmablemike/localclaw/internal/cli"
 )
@@ -35,16 +38,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
 
 	runner := &exec.System{Log: logger}
+	files := osfs.System{}
 	doctor := &app.Doctor{
-		Runtime: &podman.Client{Runner: runner},
-		Envs:    &flox.Client{Runner: runner},
+		Runtime:  &podman.Client{Runner: runner},
+		Envs:     &flox.Client{Runner: runner},
+		Scaffold: files,
+		Topology: toml.Loader{},
 	}
 	root := cli.New(cli.Deps{
-		Doctor: doctor,
-		Build:  buildInfo(),
-		Level:  level,
-		Stdout: stdout,
-		Stderr: stderr,
+		Doctor:     doctor,
+		Init:       &app.Init{Defaults: scaffoldFS(), Writer: files},
+		Build:      buildInfo(),
+		DefaultDir: defaultDir(),
+		Level:      level,
+		Stdout:     stdout,
+		Stderr:     stderr,
 	})
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -55,9 +63,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch {
 	case code == 130:
 		fmt.Fprintln(stderr, "lclaw: interrupted")
-	case code == 1 && !errors.Is(err, cli.ErrChecksFailed):
-		// Failed checks were already reported; usage errors were already
-		// printed by the cli package. Everything else is unexpected.
+	case code == 1 && !errors.Is(err, cli.ErrChecksFailed) && !errors.Is(err, cli.ErrInitFailed):
+		// Failed checks and failed writes were already reported; usage
+		// errors were already printed by the cli package. Everything else
+		// is unexpected.
 		fmt.Fprintf(stderr, "lclaw: %v\n", err)
 	}
 	return code
@@ -87,4 +96,15 @@ func buildInfo() cli.BuildInfo {
 		}
 	}
 	return bi
+}
+
+// defaultDir is ~/.config/lclaw, the scaffold location when neither --dir
+// nor LCLAW_DIR is set. It is empty when the home directory is unknown, and
+// the cli then asks for --dir.
+func defaultDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "lclaw")
 }

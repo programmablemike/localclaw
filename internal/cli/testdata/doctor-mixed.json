@@ -9,7 +9,7 @@
     {
       "name": "podman",
       "status": "pass",
-      "summary": "5.8.4 (minimum 5.0.0)"
+      "summary": "5.8.4 (minimum 5.8.0)"
     },
     {
       "name": "lclaw-infra",

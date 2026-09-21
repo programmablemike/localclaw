@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -76,8 +77,17 @@ func TestEvaluateMachinesNoneCreated(t *testing.T) {
 }
 
 func TestRequirementsDefaults(t *testing.T) {
-	if PodmanRequirement.Tool != "podman" || !(Version{Major: 5}).AtLeast(PodmanRequirement.Min) {
-		t.Errorf("PodmanRequirement = %+v", PodmanRequirement)
+	if PodmanRequirement.Tool != "podman" || PodmanRequirement.Min != (Version{Major: 5, Minor: 8}) {
+		t.Errorf("PodmanRequirement = %+v, want podman with minimum 5.8.0", PodmanRequirement)
+	}
+	if !(Version{Major: 5, Minor: 8, Patch: 4}).AtLeast(PodmanRequirement.Min) {
+		t.Error("5.8.4 must satisfy the podman minimum")
+	}
+	if (Version{Major: 5, Minor: 7, Patch: 9}).AtLeast(PodmanRequirement.Min) {
+		t.Error("5.7.9 must not satisfy the podman minimum: --playbook needs 5.8")
+	}
+	if !strings.Contains(PodmanRequirement.InstallHint, "5.8") {
+		t.Errorf("InstallHint %q should name 5.8", PodmanRequirement.InstallHint)
 	}
 	if FloxRequirement.Tool != "flox" || !(Version{Major: 1}).AtLeast(FloxRequirement.Min) {
 		t.Errorf("FloxRequirement = %+v", FloxRequirement)

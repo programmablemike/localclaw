@@ -51,5 +51,5 @@ than read, so it must be accurate, complete and predictable in structure.
   variables, exit codes and the JSON output shape of the lclaw command-line
   tool.
 - [Scaffold reference](scaffold.md): Layout of the lclaw scaffold directory,
-  the lclaw.toml schema and its validation rules, the conventions every Pod
-  file keeps, and what lclaw init does to each file.
+  the lclaw.toml schema and validation rules, the Pod file conventions, and
+  what lclaw init does to each file.

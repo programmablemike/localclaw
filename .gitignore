@@ -35,3 +35,6 @@ go.work.sum
 .DS_Store
 
 # Flox runtime state (run/, cache/, log/) is ignored by .flox/.gitignore.
+
+# Flox build output symlinks (flox build <name> writes ./result-<name>)
+/result-*

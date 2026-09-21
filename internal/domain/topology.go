@@ -163,6 +163,13 @@ func Validate(t Topology, exists func(path string) bool) []Finding {
 			add("machines", "machines.%s appears %d times", r, n)
 		}
 	}
+
+	// Secret names are part of lclaw.toml, so they are validated here
+	// rather than by a second entry point. The catalogue's findings are
+	// appended as a group; each names the machine table it came from.
+	_, secretFindings := NewCatalogue(BuiltinSecrets(), t.DeclaredSecrets())
+	out = append(out, secretFindings...)
+
 	return out
 }
 

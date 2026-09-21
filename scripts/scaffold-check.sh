@@ -175,8 +175,11 @@ spec:
   restartPolicy: Never
   containers:
     - name: probe
-      image: docker.io/library/busybox
-      command: ["sh", "-c", "printf '%s|%s' \"\$WIRE_ENV\" \"\$(cat /run/secrets/$wire/value)\""]
+      # busybox:1.38.0, resolved with skopeo (no podman machine) on
+      # 2026-09-21; the manifest list covers linux/amd64 and linux/arm64,
+      # among other architectures.
+      image: docker.io/library/busybox:1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+      command: ["sh", "-c", "printf '%s|%s\n' \"\$WIRE_ENV\" \"\$(cat /run/secrets/$wire/value)\""]
       env:
         - name: WIRE_ENV
           valueFrom:

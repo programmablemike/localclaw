@@ -52,7 +52,7 @@ func executeDeps(t *testing.T, d Deps, args ...string) *run {
 // execute runs the tree with doc as the doctor and the test default dir.
 func execute(t *testing.T, doc DoctorRunner, args ...string) *run {
 	t.Helper()
-	return executeDeps(t, Deps{Doctor: doc, DefaultDir: testDefaultDir}, args...)
+	return executeDeps(t, Deps{Doctor: doc, Init: &fakeInit{}, DefaultDir: testDefaultDir}, args...)
 }
 
 // unsetenv removes key for the test and restores it afterwards. t.Setenv
@@ -155,13 +155,13 @@ func TestHelpListsCommandsOnStdout(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	out := r.stdout.String()
-	if !strings.Contains(out, "doctor") || !strings.Contains(out, "version") || !strings.Contains(out, "--output") || !strings.Contains(out, "--dir") {
+	if !strings.Contains(out, "doctor") || !strings.Contains(out, "version") || !strings.Contains(out, "init") || !strings.Contains(out, "--output") || !strings.Contains(out, "--dir") {
 		t.Fatalf("help = %q", out)
 	}
 }
 
 func TestSubcommandUnknownFlagIsUsageError(t *testing.T) {
-	for _, args := range [][]string{{"doctor", "--bogus"}, {"version", "--bogus"}} {
+	for _, args := range [][]string{{"doctor", "--bogus"}, {"version", "--bogus"}, {"init", "--bogus"}} {
 		r := execute(t, &fakeDoctor{}, args...)
 		if got := ExitCode(r.err); got != 2 {
 			t.Fatalf("%v: exit code = %d (err %v), want 2", args, got, r.err)

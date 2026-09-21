@@ -1,0 +1,6 @@
+written  lclaw.toml
+written  machines/agent/playbook.yaml
+skipped  workloads/openclaw/pod.yaml
+failed   workloads/openclaw/Containerfile: osfs: write /home/test/.config/lclaw/workloads/openclaw/Containerfile: permission denied
+
+/home/test/.config/lclaw: 2 written, 1 skipped, 1 failed

@@ -1,0 +1,20 @@
+# LocalClaw first-boot playbook for the agent machine (lclaw-agent).
+#
+# `podman machine init --playbook` copies this one file into the VM and runs
+# it once after the first boot, as the core user. It must stay
+# self-contained: nothing here can include or copy other files from the host.
+#
+# The only default task enables podman-restart.service for the core user, so
+# every container whose restart policy is "always" (which is what the Pod
+# files set) comes back after the VM reboots. Podman's machine image enables
+# lingering for core but leaves this service off.
+- name: Prepare the LocalClaw agent machine
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Enable podman-restart.service at user scope
+      ansible.builtin.systemd:
+        name: podman-restart.service
+        scope: user
+        enabled: true

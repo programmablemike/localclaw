@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,7 @@ func TestRunUsageErrorExits2(t *testing.T) {
 	for _, args := range [][]string{
 		{"lclaw", "--output", "yaml", "version"},
 		{"lclaw", "doctor", "--bogus"},
+		{"lclaw", "init", "--bogus"},
 	} {
 		var stdout, stderr bytes.Buffer
 		code := run(args, &stdout, &stderr)
@@ -87,4 +89,96 @@ func TestRunDoctorReportsAMissingScaffold(t *testing.T) {
 		}
 	}
 	t.Fatalf("no scaffold check in %s", stdout.String())
+}
+
+// scaffoldPaths lists every embedded default, slash-separated.
+func scaffoldPaths(t *testing.T) []string {
+	t.Helper()
+	var paths []string
+	err := fs.WalkDir(scaffoldFS(), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			paths = append(paths, p)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return paths
+}
+
+func TestRunInitWritesThenSkipsThenForces(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "lclaw")
+	paths := scaffoldPaths(t)
+	if len(paths) < 4 {
+		t.Fatalf("embedded scaffold holds %d files: %v", len(paths), paths)
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("first init: exit %d, stderr %q", code, stderr.String())
+	}
+	for _, p := range paths {
+		want, err := fs.ReadFile(scaffoldFS(), p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(p)))
+		if err != nil {
+			t.Fatalf("%s: %v", p, err)
+		}
+		if !bytes.Equal(got, want) {
+			t.Errorf("%s: content differs from the embedded default", p)
+		}
+	}
+
+	stdout.Reset()
+	if code := run([]string{"lclaw", "--output", "json", "init", "--dir", dir}, &stdout, &stderr); code != 0 {
+		t.Fatalf("second init: exit %d, stderr %q", code, stderr.String())
+	}
+	var second struct{ Written, Skipped []string }
+	if err := json.Unmarshal(stdout.Bytes(), &second); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout.String())
+	}
+	if len(second.Written) != 0 || len(second.Skipped) != len(paths) {
+		t.Fatalf("second init wrote %v, skipped %d of %d", second.Written, len(second.Skipped), len(paths))
+	}
+
+	tomlPath := filepath.Join(dir, "lclaw.toml")
+	if err := os.WriteFile(tomlPath, []byte("schema = 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if code := run([]string{"lclaw", "init", "--dir", dir, "--force"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("forced init: exit %d, stderr %q", code, stderr.String())
+	}
+	got, _ := os.ReadFile(tomlPath)
+	want, _ := fs.ReadFile(scaffoldFS(), "lclaw.toml")
+	if !bytes.Equal(got, want) {
+		t.Fatal("--force did not restore lclaw.toml")
+	}
+}
+
+func TestRunInitReportsAWriteFailure(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can write anywhere")
+	}
+	dir := filepath.Join(t.TempDir(), "lclaw")
+	if err := os.MkdirAll(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"lclaw", "init", "--dir", dir}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout %q stderr %q", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "failed   lclaw.toml: ") {
+		t.Fatalf("stdout = %q, want a failed line for lclaw.toml", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty: the report already named the failures", stderr.String())
+	}
 }

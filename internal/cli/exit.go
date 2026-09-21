@@ -10,11 +10,16 @@ import (
 // nothing more for it.
 var ErrChecksFailed = errors.New("checks failed")
 
+// ErrInitFailed is returned by init when at least one file could not be
+// written. The report has already named each file, so nothing more is
+// printed for it.
+var ErrInitFailed = errors.New("some files could not be written")
+
 // ExitCode maps the error returned by the root command to a process exit
 // status. It is the only place that mapping lives.
 //
 //	0   success, including warnings
-//	1   failed checks or any unexpected error
+//	1   failed checks, failed init writes or any unexpected error
 //	2   usage error (unknown flag, bad --output value)
 //	130 interrupted
 func ExitCode(err error) int {

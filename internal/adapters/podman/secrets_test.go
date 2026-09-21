@@ -3,6 +3,7 @@ package podman
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"reflect"
 	"strings"
@@ -45,6 +46,45 @@ func TestStoreSecretError(t *testing.T) {
 	err := (&Client{Runner: f}).StoreSecret(context.Background(), domain.Agent, "k", []byte("v"))
 	if err == nil || !strings.HasPrefix(err.Error(), "podman: store secret k: exit status 125") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestStoreSecretErrorRedactsTheBody(t *testing.T) {
+	name, value := "litellm-master-key", []byte("sk-...")
+	body, err := kubeSecret(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := exec.NewFake()
+	args := []string{"--connection", "lclaw-services", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
+	f.Script("podman", args, exec.Response{Err: &exec.ExitError{
+		Code:   125,
+		Stderr: "Error: unable to decode input\n" + string(body) + "\n",
+	}})
+
+	err = (&Client{Runner: f}).StoreSecret(context.Background(), domain.Services, name, value)
+	if err == nil {
+		t.Fatal("want error")
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(value)
+	if strings.Contains(err.Error(), b64) {
+		t.Fatalf("err = %v, must not carry the base64 value", err)
+	}
+	if strings.Contains(err.Error(), string(value)) {
+		t.Fatalf("err = %v, must not carry the raw value", err)
+	}
+	if !strings.Contains(err.Error(), "unable to decode input") {
+		t.Fatalf("err = %v, must keep diagnostics", err)
+	}
+	if !strings.Contains(err.Error(), "exit status 125") {
+		t.Fatalf("err = %v, must keep the exit status", err)
+	}
+
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 125 {
+		t.Fatalf("errors.As = %v, %+v, want *exec.ExitError with Code 125", errors.As(err, &exitErr), exitErr)
 	}
 }
 

@@ -56,9 +56,29 @@ func (c *Client) StoreSecret(ctx context.Context, role domain.Role, name string,
 		Sensitive: true,
 	})
 	if err != nil {
-		return wrap("store secret "+name, err)
+		return wrap("store secret "+name, redactExit(err, base64.StdEncoding.EncodeToString(value)))
 	}
 	return nil
+}
+
+// redactExit strips any stderr line carrying secret from err before it is
+// wrapped. Sensitive only suppresses the exec adapter's debug log; on a
+// stdin parse failure podman may echo part of the Kubernetes Secret body
+// back on stderr, and that body carries the base64-encoded value. Non-exit
+// errors and diagnostics on other lines pass through untouched.
+func redactExit(err error, secret string) error {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return err
+	}
+	lines := strings.Split(exitErr.Stderr, "\n")
+	kept := lines[:0]
+	for _, l := range lines {
+		if !strings.Contains(l, secret) {
+			kept = append(kept, l)
+		}
+	}
+	return &exec.ExitError{Code: exitErr.Code, Stderr: strings.TrimSpace(strings.Join(kept, "\n"))}
 }
 
 // kubeSecret renders the Kubernetes Secret object with the single key

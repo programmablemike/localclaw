@@ -47,6 +47,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	root := cli.New(cli.Deps{
 		Doctor:     doctor,
+		Init:       &app.Init{Defaults: scaffoldFS(), Writer: files},
 		Build:      buildInfo(),
 		DefaultDir: defaultDir(),
 		Level:      level,
@@ -62,9 +63,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch {
 	case code == 130:
 		fmt.Fprintln(stderr, "lclaw: interrupted")
-	case code == 1 && !errors.Is(err, cli.ErrChecksFailed):
-		// Failed checks were already reported; usage errors were already
-		// printed by the cli package. Everything else is unexpected.
+	case code == 1 && !errors.Is(err, cli.ErrChecksFailed) && !errors.Is(err, cli.ErrInitFailed):
+		// Failed checks and failed writes were already reported; usage
+		// errors were already printed by the cli package. Everything else
+		// is unexpected.
 		fmt.Fprintf(stderr, "lclaw: %v\n", err)
 	}
 	return code

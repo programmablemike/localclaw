@@ -1,0 +1,16 @@
+{
+  "dir": "/home/test/.config/lclaw",
+  "written": [
+    "lclaw.toml",
+    "machines/agent/playbook.yaml"
+  ],
+  "skipped": [
+    "workloads/openclaw/pod.yaml"
+  ],
+  "failed": [
+    {
+      "path": "workloads/openclaw/Containerfile",
+      "error": "osfs: write /home/test/.config/lclaw/workloads/openclaw/Containerfile: permission denied"
+    }
+  ]
+}

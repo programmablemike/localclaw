@@ -33,6 +33,7 @@ type BuildInfo struct {
 // root.
 type Deps struct {
 	Doctor     DoctorRunner
+	Init       InitRunner
 	Build      BuildInfo
 	DefaultDir string         // the scaffold directory when --dir and LCLAW_DIR are unset; empty when the home directory is unknown
 	Level      *slog.LevelVar // raised to Debug by --verbose; may be nil
@@ -90,6 +91,7 @@ func New(d Deps) *ucli.Command {
 		ExitErrHandler: func(context.Context, *ucli.Command, error) {},
 		Commands: []*ucli.Command{
 			doctorCommand(d),
+			initCommand(d),
 			versionCommand(d),
 		},
 	}

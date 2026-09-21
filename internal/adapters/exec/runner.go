@@ -12,7 +12,10 @@ import (
 
 // Command is one external command. Stdin, when non-nil, is written to the
 // child's standard input. Sensitive marks a command whose output must never
-// be logged; its name, arguments, duration and exit status still are.
+// be logged; its name, arguments, duration and exit status still are. The
+// returned Result and any ExitError still carry the output, because adapters
+// read values from it (the keychain adapter reads a password line from
+// stderr) and are responsible for stripping values before wrapping errors.
 type Command struct {
 	Name      string
 	Args      []string

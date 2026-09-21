@@ -72,7 +72,7 @@ func TestValidateEmptyTopology(t *testing.T) {
 		{"machines", "machines.agent is missing"},
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Validate() =\n%v\nwant\n%v", got, want)
+		t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, want)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestValidateRules(t *testing.T) {
 			}
 			got := Validate(top, exists)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("Validate() =\n%v\nwant\n%v", got, tt.want)
+				t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, tt.want)
 			}
 		})
 	}
@@ -203,6 +203,6 @@ func TestValidateReportsEverythingInFileOrder(t *testing.T) {
 		{"machines.agent.workloads", `"litellm" is also listed under machines.services`},
 	}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("Validate() =\n%v\nwant\n%v", got, want)
+		t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, want)
 	}
 }

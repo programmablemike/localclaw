@@ -178,9 +178,9 @@ func (t *fakeTarget) RemoveVolume(ctx context.Context, role domain.Role, name st
 	return nil
 }
 
-// fakeScaffold is a DirOpener over one in-memory directory. OpenDir
-// succeeds for any dir, because which directory was asked for is the
-// caller's business and the tests assert on it through fakeLoader.
+// fakeScaffold is a DirOpener over one in-memory directory. OpenDir returns
+// fsys, or err when set, and records every requested dir in dirs; the
+// doctor tests assert on dirs directly.
 type fakeScaffold struct {
 	fsys fs.FS
 	err  error

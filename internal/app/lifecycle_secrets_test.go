@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/programmablemike/localclaw/internal/domain"
@@ -43,7 +44,7 @@ func TestResolveEverythingPresent(t *testing.T) {
 		t.Fatalf("resolved = %+v, want %+v", got, want)
 	}
 	for _, c := range kc.calls {
-		if c[:3] == "put" {
+		if strings.HasPrefix(c, "put ") {
 			t.Fatalf("nothing should be written: %v", kc.calls)
 		}
 	}

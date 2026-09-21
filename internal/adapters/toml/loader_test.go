@@ -144,6 +144,7 @@ func TestLoadRelativeKeychainPathIsAnError(t *testing.T) {
 }
 
 func TestLoadSecrets(t *testing.T) {
+	t.Setenv("HOME", "/home/tester")
 	top, err := Loader{}.Load(scaffold(t, "valid.toml"))
 	if err != nil {
 		t.Fatal(err)

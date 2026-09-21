@@ -298,6 +298,11 @@ func TestRunSecretsListWithoutAScaffoldExits1(t *testing.T) {
 }
 
 func TestRunInitReportsAWriteFailure(t *testing.T) {
+	// The scaffold's lclaw.toml points the keychain path at
+	// ~/Library/Keychains/lclaw.keychain-db, so HOME must be a throwaway
+	// directory for the whole test: this must never touch the developer's
+	// real keychains.
+	t.Setenv("HOME", t.TempDir())
 	if os.Getuid() == 0 {
 		t.Skip("root can write anywhere")
 	}

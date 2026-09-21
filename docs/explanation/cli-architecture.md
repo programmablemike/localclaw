@@ -2,12 +2,13 @@
 title: "CLI architecture"
 description: "Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design."
 diataxis: explanation
-status: draft
+status: stable
 last_reviewed: 2026-09-20
 tags: [cli, architecture, hexagonal, go, dependencies, design-decision]
 related:
   - ../../README.md
   - ../../AGENTS.md
+  - deployment-model.md
 ---
 
 # CLI architecture
@@ -233,9 +234,10 @@ The root's `ExitErrHandler` is a no-op. By default urfave/cli calls `os.Exit`
 itself when an action returns an error that carries an exit code; the no-op
 makes `Run` return the error instead, so the composition root keeps control
 and the whole command tree can be exercised in tests with buffers as writers.
-Nothing in this package touches `os.Stdout`, `os.Stderr` or `os.Exit`. A root
-`OnUsageError` hook wraps flag-parsing failures in a usage error type so
-`ExitCode` can map them to 2.
+Nothing in this package touches `os.Stdout`, `os.Stderr` or `os.Exit`.
+`OnUsageError` hooks on the root and on every subcommand wrap flag-parsing
+failures in a usage error type so `ExitCode` can map them to 2, and a root
+action turns an unknown command into the same error.
 
 Two renderers turn a `domain.Report` into aligned text or JSON. JSON goes
 through a small data-transfer struct declared in this package rather than
@@ -248,8 +250,8 @@ tags on domain types, so serialization decisions never leak inward.
 context with `signal.NotifyContext`, runs, and calls `os.Exit` with
 `cli.ExitCode(err)`. It prints unexpected errors to stderr prefixed with
 `lclaw:`, prints nothing extra for `ErrChecksFailed` because the report has
-already said what failed, and nothing extra for usage errors because
-urfave/cli has already shown help.
+already said what failed, and nothing extra for usage errors because the cli
+package has already printed the message and a pointer to `--help`.
 
 ## How `lclaw doctor` flows through the layers
 
@@ -297,8 +299,8 @@ shape every time.
 
 ## Output
 
-Text output uses `text/tabwriter`, one line per check, hints indented beneath,
-and a final count.
+Text output is one line per check with the name column padded to the longest
+name, hints indented beneath, and a final count.
 
 ```text
 PASS  flox            1.13.1 (minimum 1.0.0)
@@ -379,7 +381,7 @@ standard-library answer.
 | Structured logging           | `log/slog` with a `LevelVar`                              |
 | Error wrapping and joining   | `errors`, `fmt.Errorf` with `%w`                          |
 | Running Podman and Flox      | `os/exec` behind the `Runner` port                        |
-| Tables and JSON              | `text/tabwriter`, `encoding/json`                         |
+| Aligned text and JSON        | `fmt` padding verbs, `encoding/json`                      |
 | TTY detection                | `os.Stdout.Stat()` and `ModeCharDevice`                   |
 | Parallel machine operations  | `sync.WaitGroup.Go` and `errors.Join`, when needed later  |
 | WireGuard keys, if ever host-side | `crypto/ecdh.X25519()` produces the 32-byte keys      |
@@ -414,9 +416,10 @@ Standard `testing` only, with `reflect.DeepEqual` and `%+v` for comparisons.
 - **Architecture:** the import-graph test described under the dependency
   rule.
 
-Tests run with the race detector. On the toolchain and platform used for this
-design the race detector works with cgo disabled, so the check script needs no
-special case.
+Tests run with the race detector. It is cgo-free on macOS but still needs cgo
+on Linux with Go 1.26, so the check script enables cgo for that one step on
+Linux and the manifest installs gcc for the Linux systems only. Builds stay
+static.
 
 ## Toolchain and build
 
@@ -426,12 +429,11 @@ Everything runs through Flox. There is no Makefile and no Nix flake.
   govulncheck. Sets `GOTOOLCHAIN=local` so Go can never auto-download a
   different toolchain, and `CGO_ENABLED=0` for static binaries.
 - **Package build**, `.flox/pkgs/lclaw.nix`. A Nix expression build using
-  `buildGoModule` with `vendorHash = null`, `subPackages` limited to
-  `cmd/lclaw`, symbols stripped, and the version injected with
-  `-ldflags -X`. `flox build lclaw` is the hermetic gate and the release
-  artifact. It runs the unit tests in its check phase. Flox evaluates the
-  expression against the same nixpkgs pin that provides the dev environment's
-  Go, so there is one toolchain pin.
+  `buildGoModule` with `vendorHash = null`, symbols stripped, and the version
+  injected with `-ldflags -X`. `flox build lclaw` is the hermetic gate and the
+  release artifact. It runs the unit tests in its check phase. Flox evaluates
+  the expression against the same nixpkgs pin that provides the dev
+  environment's Go, so there is one toolchain pin.
 - **Vendoring.** Dependencies are vendored and committed. With
   `vendorHash = null`, `buildGoModule` compiles from `vendor/` and fetches
   nothing, so the derivation is hermetic by construction, and on Linux the Nix
@@ -480,13 +482,39 @@ hermetic packaging and `flox publish` for distribution, which matches the
 README's statement that Flox builds and manages the agents. A thin flake can
 wrap the same expression later if `nix run` consumption ever matters.
 
+## Refinements made during implementation
+
+The code landed on 2026-09-20 and matches this page with six small changes,
+recorded so the page stays accurate.
+
+- **Version via `go:embed`.** A root package `localclaw` embeds `VERSION`,
+  so `go run`, `go test`, development builds and the Nix build all report
+  the same version without `-ldflags -X`. The Nix expression strips symbols
+  and nothing more, and `cmd/lclaw` imports the root package for the value.
+- **`ErrToolNotFound` is declared in `domain`.** `EvaluateTool` must
+  recognise "not installed", so the sentinel lives next to it;
+  `app.ErrToolNotFound` is the same value.
+- **Text output is padded by hand.** A hint line has fewer cells than a
+  check line, which splits `tabwriter`'s column blocks; a computed
+  name width gives the alignment shown above.
+- **staticcheck comes from the nixpkgs package `go-tools`**, and
+  golangci-lint left the manifest.
+- **`subPackages` is not set in the Nix expression.** Limiting it to
+  `cmd/lclaw` would also limit the check phase to that package; building
+  every package installs only the one `main` and tests all of them.
+- **The race detector needs cgo on Linux.** The first CI run showed that
+  `go test -race` aborts under `CGO_ENABLED=0` on Linux with Go 1.26, while
+  macOS is cgo-free. The check script enables cgo for that step on Linux only
+  and the manifest installs gcc for the Linux systems.
+
 ## What lands with the code
 
 - `docs/reference/cli.md`: commands, global flags, exit codes and the JSON
   output shape.
 - `docs/how-to/set-up-a-development-environment.md`: activating Flox, running
   the check script, building and running `lclaw doctor`.
-- The "Build, test, lint" placeholder in `AGENTS.md` replaced with the real
-  commands.
-- `CHANGELOG.md` with an Unreleased section, as the release procedure expects.
-- This page moves from `draft` to `stable` once the implementation matches it.
+- The "Build, test, lint" placeholder in `AGENTS.md` was replaced with the
+  real commands.
+- `CHANGELOG.md` landed with an Unreleased section, as the release procedure
+  expects.
+- This page is `stable`: the implementation matches it.

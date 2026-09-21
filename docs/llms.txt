@@ -4,7 +4,7 @@
 
 Contributor and agent rules live in AGENTS.md at the repository root: work in a git worktree, land every change through a pull request, use Conventional Commits, follow Diátaxis for documentation, and version releases with Semantic Versioning. Read it before changing anything.
 
-Paths below are relative to this file. No code has landed yet, so tutorials and product reference are still empty. The documentation system itself is fully documented.
+Paths below are relative to this file. The `lclaw` CLI skeleton and `doctor` command exist; tutorials are still empty. The documentation system itself is fully documented.
 
 ## Start here
 
@@ -20,18 +20,21 @@ Paths below are relative to this file. No code has landed yet, so tutorials and 
 
 - [How-to guides](how-to/README.md): Index of task-oriented guides. A how-to guide gives a competent reader the steps to accomplish one real goal.
 - [Add a document](how-to/add-a-document.md): Create a page in the right Diátaxis section, fill in the frontmatter, and register it in the indexes so agents can find it.
+- [Set up a development environment](how-to/set-up-a-development-environment.md): Enter the Flox environment, run the check script, build lclaw from source and run doctor against your machine.
 
 ## Reference
 
 - [Reference](reference/README.md): Index of reference material. Reference pages describe the machinery accurately and austerely, structured to mirror what they describe.
 - [Frontmatter schema](reference/frontmatter-schema.md): Fields, types and allowed values for the YAML preamble that begins every Markdown page under docs/.
 - [llms.txt index format](reference/llms-txt.md): Location, structure and entry format of docs/llms.txt, the curated index that lets agents find pages without reading every file.
+- [lclaw command reference](reference/cli.md): Commands, global flags, environment variables, exit codes and the JSON output shape of the lclaw command-line tool.
 
 ## Explanation
 
 - [Explanation](explanation/README.md): Index of understanding-oriented discussion. Explanation pages say why things are the way they are, with context, trade-offs and alternatives.
 - [Why Diátaxis](explanation/why-diataxis.md): The reasoning behind the four-way split, and how frontmatter and llms.txt make that structure discoverable by agents.
 - [CLI architecture](explanation/cli-architecture.md): Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design.
+- [Deployment model](explanation/deployment-model.md): Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them.
 - [Secrets management](explanation/secrets-management.md): Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own.
 
 ## Optional

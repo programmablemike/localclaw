@@ -11,13 +11,22 @@ schema-version = "1.13.0"
 # `flox upgrade` moves within 1.26.x only.
 go.pkg-path = "go"
 go.version = "1.26"
-golangci-lint.pkg-path = "golangci-lint"
+# staticcheck lives in the nixpkgs package called go-tools.
+go-tools.pkg-path = "go-tools"
+govulncheck.pkg-path = "govulncheck"
 gopls.pkg-path = "gopls"
+# The race detector needs cgo, and so a C compiler, on Linux. macOS is
+# cgo-free, so gcc is installed for the Linux systems only.
+gcc.pkg-path = "gcc"
+gcc.systems = ["aarch64-linux", "x86_64-linux"]
 
 [vars]
 # Stop the go command from downloading a different toolchain when go.mod
 # asks for a newer Go. This manifest is the only source of the toolchain.
 GOTOOLCHAIN = "local"
+# Static binaries. scripts/check.sh re-enables cgo for one step only: the
+# race detector on Linux.
+CGO_ENABLED = "0"
 
 [options]
 # macOS on Apple silicon for development, Linux for CI runners.

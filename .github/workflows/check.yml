@@ -1,0 +1,38 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: flox/install-flox-action@1128abd73431089ab9d871c893b4e72a729354e1 # v2.6.0
+
+      - name: Run checks
+        run: flox activate -- ./scripts/check.sh
+
+      - name: Build package
+        run: flox build lclaw
+
+      - name: Smoke test the built binary
+        # doctor reports a verdict with exit 0 (pass or warn) or 1 (a failed
+        # check, the usual case on runners with no or an old Podman). Any
+        # other status is a usage error or a crash and fails the job.
+        run: |
+          ./result-lclaw/bin/lclaw version
+          status=0
+          ./result-lclaw/bin/lclaw doctor || status=$?
+          test "$status" -eq 0 || test "$status" -eq 1

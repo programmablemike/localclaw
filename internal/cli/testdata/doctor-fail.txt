@@ -1,0 +1,7 @@
+PASS  flox      1.13.1 (minimum 1.0.0)
+FAIL  podman    not found
+      hint: install Podman 5 or newer from https://podman.io/docs/installation
+WARN  machines  skipped because the podman check failed
+      hint: fix podman, then run `lclaw doctor` again
+
+1 passed, 1 warnings, 1 failed

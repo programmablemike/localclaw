@@ -1,0 +1,32 @@
+{
+  "status": "warn",
+  "checks": [
+    {
+      "name": "flox",
+      "status": "pass",
+      "summary": "1.13.1 (minimum 1.0.0)"
+    },
+    {
+      "name": "podman",
+      "status": "pass",
+      "summary": "5.8.4 (minimum 5.0.0)"
+    },
+    {
+      "name": "lclaw-infra",
+      "status": "warn",
+      "summary": "not created",
+      "hint": "run `lclaw up` once it is available"
+    },
+    {
+      "name": "lclaw-services",
+      "status": "warn",
+      "summary": "not created",
+      "hint": "run `lclaw up` once it is available"
+    },
+    {
+      "name": "lclaw-agent",
+      "status": "pass",
+      "summary": "running"
+    }
+  ]
+}

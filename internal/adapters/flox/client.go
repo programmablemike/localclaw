@@ -19,7 +19,7 @@ type Client struct {
 // Version parses `flox --version`, which prints a bare version such as
 // "1.13.1-g684cdfb".
 func (c *Client) Version(ctx context.Context) (domain.Version, error) {
-	res, err := c.Runner.Run(ctx, "flox", "--version")
+	res, err := c.Runner.Run(ctx, exec.Command{Name: "flox", Args: []string{"--version"}})
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return domain.Version{}, fmt.Errorf("flox: version: %w", domain.ErrToolNotFound)

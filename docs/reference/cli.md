@@ -33,8 +33,9 @@ Global flags may appear before or after the command name.
 | `--dir`     | path           | `~/.config/lclaw` | `LCLAW_DIR` | Scaffold directory read by `doctor` and written by `init`. |
 | `--help`    |                |         |                | Print usage and exit 0.                                                |
 
-When the home directory cannot be determined and neither `--dir` nor
-`LCLAW_DIR` is set, `doctor` and `init` exit 2 asking for one.
+When neither `--dir` nor `LCLAW_DIR` supplies a directory, because the home
+directory cannot be determined or `LCLAW_DIR` is set but empty, `doctor` and
+`init` exit 2 asking for one.
 
 An unknown flag, an unknown command or an invalid `--output` value prints
 the error and `Run 'lclaw --help' for usage.` to standard error and exits 2.

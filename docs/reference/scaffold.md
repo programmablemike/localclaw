@@ -57,8 +57,8 @@ which is tagged `localhost/lclaw/<name>:latest` on the machine that runs it.
 | `cpus`       | yes      | integer          | greater than 0                                                              | `podman machine init --cpus`               |
 | `memory-mib` | yes      | integer          | greater than 0, in MiB                                                      | `--memory`                                 |
 | `disk-gib`   | yes      | integer          | greater than 0, in GiB                                                      | `--disk-size`                              |
-| `workloads`  | yes      | array of strings | lowercase letters, digits and hyphens, not starting with a hyphen; each names a directory under `workloads/`; no name under two machines | Applied in order, torn down in reverse |
-| `volumes`    | no       | array of strings | `"<host>:<guest>"`, both absolute paths                                     | One `--volume` flag each; empty means no host directory is mounted |
+| `workloads`  | no       | array of strings | lowercase letters, digits and hyphens, not starting with a hyphen; each names a directory under `workloads/`; no name under two machines; may be empty or absent | Applied in order, torn down in reverse |
+| `volumes`    | no       | array of strings | `"<host>:<guest>"`, both absolute paths; anything after a second colon is passed to Podman unchanged as mount options | One `--volume` flag each; empty means no host directory is mounted |
 
 Unknown keys anywhere in the file are rejected when the file is read.
 
@@ -182,7 +182,7 @@ to the machine as a tarball on every build.
 | --------------------------------------- | --------- | ----------------- |
 | Path does not exist                    | written   | `written  <path>`|
 | Path exists, no `--force`              | untouched | `skipped  <path>`|
-| Path exists, `--force`                 | replaced  | `written <path>`|
+| Path exists, `--force`                 | replaced  | `written  <path>`|
 | Write fails (permissions, disk)        | untouched | `failed   <path>: <error>` |
 
 Each file is written to a temporary name in the same directory and renamed

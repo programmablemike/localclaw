@@ -8,6 +8,7 @@ tags: [cli, architecture, hexagonal, go, dependencies, design-decision]
 related:
   - ../../README.md
   - ../../AGENTS.md
+  - deployment-model.md
 ---
 
 # CLI architecture

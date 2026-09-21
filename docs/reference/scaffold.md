@@ -91,6 +91,7 @@ in the order they are checked:
 | `machines.<role>.workloads`      | each name is valid, listed once in the whole file, and its directory holds `Containerfile`, `pod.yaml` and `.containerignore` |
 | `machines.<role>.volumes[<i>]`   | two absolute paths joined by a colon                                   |
 | `machines`                       | each role appears exactly once                                         |
+| `machines.<role>.secrets`        | each name is a lowercase DNS label of at most 63 characters, does not collide with a built-in secret, and is listed once under that machine |
 
 ### Default
 
@@ -178,18 +179,25 @@ too:
 
 ### Default secrets
 
-The secrets design creates these; the Pod files only name them. Every
-injected secret is a Kubernetes Secret with the single key `value`, as the
-secrets design specifies. The catalogue's five built-in entries are always
-present; `anthropic-api-key` is a user-supplied secret, declared in the
-default topology's `[machines.services]` table.
+`lclaw secrets` creates these; the Pod files only name them. Every injected
+secret is a Kubernetes Secret with the single key `value`. The catalogue's
+five built-in entries are always present, and are listed in full in the
+[secrets reference](secrets.md#built-in-entries); `anthropic-api-key` is a
+user-supplied secret, declared in the default topology's
+`[machines.services]` table.
 
-| Secret                   | Key     | Used by                    | Environment variable                |
-| ------------------------ | ------- | --------------------------- | ------------------------------------ |
-| `litellm-master-key`     | `value` | `litellm`                  | `LITELLM_MASTER_KEY`                |
-| `litellm-salt-key`       | `value` | `litellm`                  | `LITELLM_SALT_KEY`                  |
-| `litellm-db-password`    | `value` | `litellm-db`, `litellm`    | `POSTGRES_PASSWORD`, `DATABASE_PASSWORD` |
-| `openclaw-gateway-token` | `value` | `openclaw`                 | `OPENCLAW_GATEWAY_TOKEN`            |
+| Secret                   | Key     | Used by                 | Environment variable                     |
+| ------------------------ | ------- | ----------------------- | ---------------------------------------- |
+| `litellm-master-key`     | `value` | `litellm`               | `LITELLM_MASTER_KEY`                     |
+| `litellm-salt-key`       | `value` | `litellm`               | `LITELLM_SALT_KEY`                       |
+| `litellm-db-password`    | `value` | `litellm-db`, `litellm` | `POSTGRES_PASSWORD`, `DATABASE_PASSWORD` |
+| `openclaw-gateway-token` | `value` | `openclaw`              | `OPENCLAW_GATEWAY_TOKEN`                 |
+| `openclaw-litellm-key`   | `value` | no default Pod file     |                                          |
+
+`openclaw-litellm-key` is the fifth built-in entry. It is minted by a
+running LiteLLM, which the lifecycle commands will provide, so no default
+Pod file references it yet; the `openclaw` Pod file names only
+`openclaw-gateway-token` today.
 
 ## `workloads/<name>/.containerignore`
 

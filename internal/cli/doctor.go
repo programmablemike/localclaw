@@ -10,8 +10,9 @@ import (
 
 func doctorCommand(d Deps) *ucli.Command {
 	return &ucli.Command{
-		Name:  "doctor",
-		Usage: "check that this host can run LocalClaw",
+		Name:         "doctor",
+		Usage:        "check that this host can run LocalClaw",
+		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
 			report, err := d.Doctor.Run(ctx)
 			if err != nil {

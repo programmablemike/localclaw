@@ -20,8 +20,9 @@ type versionDTO struct {
 
 func versionCommand(d Deps) *ucli.Command {
 	return &ucli.Command{
-		Name:  "version",
-		Usage: "print version and build information",
+		Name:         "version",
+		Usage:        "print version and build information",
+		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
 			w := cmd.Root().Writer
 			info := versionDTO{

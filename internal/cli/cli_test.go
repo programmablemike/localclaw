@@ -137,6 +137,56 @@ func TestHelpListsCommandsOnStdout(t *testing.T) {
 	}
 }
 
+func TestSubcommandUnknownFlagIsUsageError(t *testing.T) {
+	for _, args := range [][]string{{"doctor", "--bogus"}, {"version", "--bogus"}} {
+		r := execute(t, &fakeDoctor{}, args...)
+		if got := ExitCode(r.err); got != 2 {
+			t.Fatalf("%v: exit code = %d (err %v), want 2", args, got, r.err)
+		}
+		if r.stdout.Len() != 0 {
+			t.Fatalf("%v: stdout = %q, want empty", args, r.stdout.String())
+		}
+		if strings.Count(r.stderr.String(), "lclaw:") != 1 || !strings.Contains(r.stderr.String(), "Run 'lclaw --help' for usage.") {
+			t.Fatalf("%v: stderr = %q", args, r.stderr.String())
+		}
+	}
+}
+
+func TestUnknownCommandIsUsageError(t *testing.T) {
+	for _, args := range [][]string{{"bogus"}, {"help"}} {
+		r := execute(t, &fakeDoctor{}, args...)
+		if got := ExitCode(r.err); got != 2 {
+			t.Fatalf("%v: exit code = %d (err %v), want 2", args, got, r.err)
+		}
+		if r.stdout.Len() != 0 {
+			t.Fatalf("%v: stdout = %q, want empty", args, r.stdout.String())
+		}
+		if !strings.Contains(r.stderr.String(), `unknown command "`+args[0]+`"`) {
+			t.Fatalf("%v: stderr = %q", args, r.stderr.String())
+		}
+	}
+}
+
+func TestNoArgumentsShowsHelp(t *testing.T) {
+	r := execute(t, &fakeDoctor{})
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !strings.Contains(r.stdout.String(), "doctor") || !strings.Contains(r.stdout.String(), "version") {
+		t.Fatalf("stdout = %q, want help", r.stdout.String())
+	}
+}
+
+func TestGlobalFlagAfterCommand(t *testing.T) {
+	r := execute(t, &fakeDoctor{}, "version", "--output", "json")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !strings.HasPrefix(r.stdout.String(), "{") {
+		t.Fatalf("stdout = %q, want JSON", r.stdout.String())
+	}
+}
+
 func TestExitCode(t *testing.T) {
 	tests := []struct {
 		name string

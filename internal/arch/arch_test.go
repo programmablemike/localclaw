@@ -32,6 +32,7 @@ var allowed = map[string][]string{
 	"internal/adapters/osfs":     {},
 	"internal/adapters/podman":   {"internal/app", "internal/domain", "internal/adapters/exec"},
 	"internal/adapters/toml":     {"internal/domain"},
+	"internal/adapters/tty":      {},
 	"cmd/lclaw":                  {"*"},
 }
 

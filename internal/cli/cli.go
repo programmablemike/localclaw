@@ -45,9 +45,16 @@ func New(d Deps) *ucli.Command {
 		Name:                  "lclaw",
 		Usage:                 "manage LocalClaw's Podman machines",
 		HideVersion:           true,
+		HideHelpCommand:       true,
 		EnableShellCompletion: true,
 		Writer:                d.Stdout,
 		ErrWriter:             d.Stderr,
+		Action: func(ctx context.Context, cmd *ucli.Command) error {
+			if cmd.Args().Present() {
+				return usage(cmd, fmt.Errorf("unknown command %q", cmd.Args().First()))
+			}
+			return ucli.ShowAppHelp(cmd)
+		},
 		Flags: []ucli.Flag{
 			&ucli.StringFlag{
 				Name:    "output",
@@ -69,9 +76,7 @@ func New(d Deps) *ucli.Command {
 			}
 			return ctx, nil
 		},
-		OnUsageError: func(ctx context.Context, cmd *ucli.Command, err error, isSubcommand bool) error {
-			return usage(cmd, err)
-		},
+		OnUsageError: onUsageError,
 		// A no-op handler stops urfave/cli from calling os.Exit itself, so
 		// Run returns the error and the composition root keeps control.
 		ExitErrHandler: func(context.Context, *ucli.Command, error) {},
@@ -80,6 +85,13 @@ func New(d Deps) *ucli.Command {
 			versionCommand(d),
 		},
 	}
+}
+
+// onUsageError is set on the root and on every subcommand, because
+// urfave/cli does not inherit it: a flag mistake after the command name
+// would otherwise take urfave's default path (help on stdout, exit 1).
+func onUsageError(ctx context.Context, cmd *ucli.Command, err error, isSubcommand bool) error {
+	return usage(cmd, err)
 }
 
 // usageError marks a flag or argument mistake so ExitCode maps it to 2.

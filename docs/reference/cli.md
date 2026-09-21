@@ -31,8 +31,8 @@ Global flags may appear before or after the command name.
 | `--verbose` |                | off     |                | Log every external command, its duration and stderr to standard error. |
 | `--help`    |                |         |                | Print usage and exit 0.                                                |
 
-An unknown flag or an invalid `--output` value prints the error and
-`Run 'lclaw --help' for usage.` to standard error and exits 2.
+An unknown flag, an unknown command or an invalid `--output` value prints
+the error and `Run 'lclaw --help' for usage.` to standard error and exits 2.
 
 ## Commands
 

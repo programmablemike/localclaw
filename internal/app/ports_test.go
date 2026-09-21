@@ -16,4 +16,5 @@ var (
 	_ app.DirOpener          = osfs.System{}
 	_ app.TopologyLoader     = toml.Loader{}
 	_ app.Keychain           = (*keychain.Client)(nil)
+	_ app.SecretTarget       = (*podman.Client)(nil)
 )

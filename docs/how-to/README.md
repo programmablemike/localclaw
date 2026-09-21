@@ -3,7 +3,7 @@ title: "How-to guides"
 description: "Index of task-oriented guides. A how-to guide gives a competent reader the steps to accomplish one real goal."
 diataxis: index
 status: stable
-last_reviewed: 2026-09-20
+last_reviewed: 2026-09-21
 tags: [docs, diataxis, how-to]
 related:
   - ../README.md
@@ -50,3 +50,6 @@ that reach it.
 - [Set up a development environment](set-up-a-development-environment.md):
   Enter the Flox environment, run the check script, build lclaw from source
   and run doctor against your machine.
+- [Apply a deployment by hand](apply-a-deployment-by-hand.md): Create, start
+  and load one LocalClaw machine from the scaffold with plain podman
+  commands, for troubleshooting or when lclaw is not enough.

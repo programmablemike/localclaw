@@ -1,0 +1,7 @@
+# LocalClaw: Postgres database for LiteLLM's stateful mode.
+# Derived from the upstream image so that customizing is an edit here, not a
+# new build system. Add RUN, COPY or ENV instructions below the FROM line and
+# rebuild by re-running `lclaw up` or the manual procedure in
+# docs/how-to/apply-a-deployment-by-hand.md. The digest pins the exact image;
+# a LocalClaw release bumps it.
+FROM docker.io/library/postgres:18.6@sha256:86c951e05bf56c93d95d397747fb8820ac76cc3bedb78f43abd83eedbe3666ae

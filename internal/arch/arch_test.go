@@ -27,8 +27,10 @@ var allowed = map[string][]string{
 	"internal/app":             {"internal/domain"},
 	"internal/cli":             {"internal/app", "internal/domain"},
 	"internal/adapters/exec":   {},
-	"internal/adapters/podman": {"internal/app", "internal/domain", "internal/adapters/exec"},
 	"internal/adapters/flox":   {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/osfs":   {},
+	"internal/adapters/podman": {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/toml":   {"internal/domain"},
 	"cmd/lclaw":                {"*"},
 }
 

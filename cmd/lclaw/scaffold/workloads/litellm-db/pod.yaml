@@ -1,0 +1,41 @@
+# LocalClaw: Postgres for LiteLLM's stateful mode. The password comes from
+# the litellm-db-password secret, created by the secrets design, never from
+# this file. Postgres 18 keeps its cluster under /var/lib/postgresql, so the
+# volume mounts there.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: litellm-db-data
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: litellm-db
+  labels:
+    app.kubernetes.io/name: litellm-db
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: litellm-db
+      image: localhost/lclaw/litellm-db:latest
+      imagePullPolicy: Never
+      env:
+        - name: POSTGRES_USER
+          value: litellm
+        - name: POSTGRES_DB
+          value: litellm
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: litellm-db-password
+              key: value
+      ports:
+        - containerPort: 5432
+      volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: litellm-db-data

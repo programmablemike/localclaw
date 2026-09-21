@@ -1,0 +1,7 @@
+written  lclaw.toml
+written  machines/agent/playbook.yaml
+written  workloads/openclaw/.containerignore
+written  workloads/openclaw/Containerfile
+written  workloads/openclaw/pod.yaml
+
+/home/test/.config/lclaw: 5 written, 0 skipped, 0 failed

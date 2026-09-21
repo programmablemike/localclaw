@@ -1,0 +1,35 @@
+# LocalClaw: OpenClaw agent. State lives in the openclaw-state volume; the
+# gateway token comes from the openclaw-gateway-token secret by name.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-state
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: openclaw
+  labels:
+    app.kubernetes.io/name: openclaw
+    app.kubernetes.io/part-of: localclaw
+spec:
+  restartPolicy: Always
+  containers:
+    - name: openclaw
+      image: localhost/lclaw/openclaw:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 18789
+      env:
+        - name: OPENCLAW_GATEWAY_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: openclaw-gateway-token
+              key: value
+      volumeMounts:
+        - name: state
+          mountPath: /home/node/.openclaw
+  volumes:
+    - name: state
+      persistentVolumeClaim:
+        claimName: openclaw-state

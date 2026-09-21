@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/programmablemike/localclaw/internal/domain"
@@ -34,7 +35,7 @@ func golden(t *testing.T, name string, got []byte) {
 
 var mixed = domain.Report{Checks: []domain.Check{
 	{Name: "flox", Status: domain.Pass, Summary: "1.13.1 (minimum 1.0.0)"},
-	{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.0.0)"},
+	{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.8.0)"},
 	{Name: "lclaw-infra", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
 	{Name: "lclaw-services", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
 	{Name: "lclaw-agent", Status: domain.Pass, Summary: "running"},
@@ -112,5 +113,61 @@ func TestRenderTextEmptyReport(t *testing.T) {
 	renderReportText(&buf, domain.Report{})
 	if got, want := buf.String(), "\n0 passed, 0 warnings, 0 failed\n"; got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestDoctorReceivesTheDefaultDir(t *testing.T) {
+	unsetenv(t, "LCLAW_DIR")
+	doc := &fakeDoctor{report: mixed}
+	if r := execute(t, doc, "doctor"); r.err != nil {
+		t.Fatal(r.err)
+	}
+	if doc.dir != testDefaultDir {
+		t.Fatalf("dir = %q, want %q", doc.dir, testDefaultDir)
+	}
+}
+
+func TestDirFlagAndEnvironment(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+		args []string
+		want string
+	}{
+		{"flag before the command", "", []string{"--dir", "/x", "doctor"}, "/x"},
+		{"flag after the command", "", []string{"doctor", "--dir", "/y"}, "/y"},
+		{"environment", "/z", []string{"doctor"}, "/z"},
+		{"flag beats environment", "/z", []string{"--dir", "/x", "doctor"}, "/x"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.env == "" {
+				unsetenv(t, "LCLAW_DIR")
+			} else {
+				t.Setenv("LCLAW_DIR", tt.env)
+			}
+			doc := &fakeDoctor{report: mixed}
+			if r := execute(t, doc, tt.args...); r.err != nil {
+				t.Fatal(r.err)
+			}
+			if doc.dir != tt.want {
+				t.Fatalf("dir = %q, want %q", doc.dir, tt.want)
+			}
+		})
+	}
+}
+
+func TestNoDirIsUsageError(t *testing.T) {
+	unsetenv(t, "LCLAW_DIR")
+	doc := &fakeDoctor{report: mixed}
+	r := executeDeps(t, Deps{Doctor: doc, DefaultDir: ""}, "doctor")
+	if got := ExitCode(r.err); got != 2 {
+		t.Fatalf("exit code = %d (err %v), want 2", got, r.err)
+	}
+	if !strings.Contains(r.stderr.String(), "no scaffold directory: pass --dir or set LCLAW_DIR") {
+		t.Fatalf("stderr = %q", r.stderr.String())
+	}
+	if doc.dir != "" || r.stdout.Len() != 0 {
+		t.Fatalf("doctor ran with dir %q, stdout %q", doc.dir, r.stdout.String())
 	}
 }

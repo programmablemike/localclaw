@@ -45,6 +45,8 @@ spec:
             secretKeyRef:
               name: litellm-salt-key
               key: value
+        # Provisional: how one pod resolves another by name on a machine is
+        # settled by the network design; the value follows it.
         - name: DATABASE_HOST
           value: litellm-db
         - name: DATABASE_USERNAME

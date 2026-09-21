@@ -183,6 +183,7 @@ to the machine as a tarball on every build.
 | Path does not exist                    | written   | `written  <path>`|
 | Path exists, no `--force`              | untouched | `skipped  <path>`|
 | Path exists, `--force`                 | replaced  | `written  <path>`|
+| Path is a directory, with or without `--force` | untouched | `failed   <path>: <error>` |
 | Write fails (permissions, disk)        | untouched | `failed   <path>: <error>` |
 
 Each file is written to a temporary name in the same directory and renamed

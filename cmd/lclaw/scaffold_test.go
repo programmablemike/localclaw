@@ -46,6 +46,24 @@ func hasLine(data []byte, line string) bool {
 	return false
 }
 
+// documents splits a multi-document YAML file on its "---" separator lines.
+func documents(data []byte) [][]byte {
+	return bytes.Split(data, []byte("\n---\n"))
+}
+
+// metadataName returns the text after the first line in doc that begins
+// with exactly two spaces then "name: ", or "" if there is none.
+func metadataName(doc []byte) string {
+	sc := bufio.NewScanner(bytes.NewReader(doc))
+	for sc.Scan() {
+		line := strings.TrimRight(sc.Text(), "\r")
+		if strings.HasPrefix(line, "  name: ") {
+			return strings.TrimPrefix(line, "  name: ")
+		}
+	}
+	return ""
+}
+
 func TestScaffoldTopologyIsValid(t *testing.T) {
 	fsys, top := loadScaffold(t)
 	exists := func(p string) bool {
@@ -120,6 +138,20 @@ func TestScaffoldPodFilesKeepTheConventions(t *testing.T) {
 		}
 		if bytes.Contains(data, []byte("hostPath:")) {
 			t.Errorf("%s: bind-mounts a host path; state lives in named volumes", path)
+		}
+		pods := 0
+		for _, doc := range documents(data) {
+			if hasLine(doc, "kind: Pod") {
+				pods++
+			}
+			if hasLine(doc, "kind: PersistentVolumeClaim") {
+				if claim := metadataName(doc); !strings.HasPrefix(claim, name+"-") {
+					t.Errorf("%s: PersistentVolumeClaim named %q, want prefix %q", path, claim, name+"-")
+				}
+			}
+		}
+		if pods != 1 {
+			t.Errorf("%s: %d Pod documents, want exactly 1", path, pods)
 		}
 	}
 }

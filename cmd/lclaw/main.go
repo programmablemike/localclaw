@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -70,10 +69,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch {
 	case code == 130:
 		fmt.Fprintln(stderr, "lclaw: interrupted")
-	case code == 1 && !errors.Is(err, cli.ErrChecksFailed) && !errors.Is(err, cli.ErrInitFailed):
-		// Failed checks and failed writes were already reported; usage
-		// errors were already printed by the cli package. Everything else
-		// is unexpected.
+	case err != nil && !cli.Silent(err):
+		// Failed checks, failed writes and usage errors were already
+		// reported by the cli package (cli.Silent says so). Everything
+		// else — including the secrets command group's sentinel errors —
+		// has not been printed anywhere yet.
 		fmt.Fprintf(stderr, "lclaw: %v\n", err)
 	}
 	return code

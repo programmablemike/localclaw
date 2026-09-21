@@ -37,7 +37,7 @@ func initCommand(d Deps) *ucli.Command {
 				return err
 			}
 			w := cmd.Root().Writer
-			if cmd.Root().String("output") == "json" {
+			if jsonOutput(cmd) {
 				if err := renderInitJSON(w, report); err != nil {
 					return err
 				}

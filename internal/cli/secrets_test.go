@@ -171,6 +171,30 @@ func TestSecretsSetFromPrompt(t *testing.T) {
 	}
 }
 
+// TestSecretsSetPromptWinsOverStdin pins the precedence readValue actually
+// implements: the composition root only ever sets Deps.Prompt when stdin is
+// a terminal, so when both are set (as they never are in production, but a
+// test double can), the prompt wins and stdin is left untouched.
+func TestSecretsSetPromptWinsOverStdin(t *testing.T) {
+	f := &fakeSecrets{outcome: app.Outcome{Name: "anthropic-api-key"}}
+	d := secretsDeps(f)
+	const stdinContents = "from-stdin\n"
+	stdin := strings.NewReader(stdinContents)
+	d.Stdin = stdin
+	var prompted string
+	d.Prompt = func(prompt string) ([]byte, error) { prompted = prompt; return []byte("typed"), nil }
+	r := executeDeps(t, d, "secrets", "set", "anthropic-api-key")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if prompted != "value for anthropic-api-key: " || f.calls[0] != `set anthropic-api-key "typed"` {
+		t.Fatalf("prompt = %q, calls = %v", prompted, f.calls)
+	}
+	if stdin.Len() != len(stdinContents) {
+		t.Fatalf("stdin was consumed: Len() = %d, want %d", stdin.Len(), len(stdinContents))
+	}
+}
+
 func TestSecretsSetFromFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "key")
 	if err := os.WriteFile(path, []byte("from-file\n"), 0o600); err != nil {
@@ -190,6 +214,21 @@ func TestSecretsSetMissingName(t *testing.T) {
 	r := executeDeps(t, secretsDeps(&fakeSecrets{}), "secrets", "set")
 	if got := ExitCode(r.err); got != 2 || !strings.Contains(r.stderr.String(), "missing secret name") {
 		t.Fatalf("exit %d, stderr %q", got, r.stderr.String())
+	}
+}
+
+// TestSecretsSetNoValueIsUsageError checks that having no --from-file, no
+// prompt and no stdin is a usage mistake (exit 2), like every other
+// invocation error on this path, not a plain runtime error (exit 1).
+func TestSecretsSetNoValueIsUsageError(t *testing.T) {
+	d := secretsDeps(&fakeSecrets{})
+	d.Stdin = nil
+	r := executeDeps(t, d, "secrets", "set", "x")
+	if got := ExitCode(r.err); got != 2 {
+		t.Fatalf("exit code = %d (err %v), want 2", got, r.err)
+	}
+	if r.stdout.Len() != 0 {
+		t.Fatalf("stdout = %q, want empty", r.stdout.String())
 	}
 }
 
@@ -289,14 +328,36 @@ func TestSecretsGetWritesRawValue(t *testing.T) {
 }
 
 func TestSecretsFindingsRenderAsReport(t *testing.T) {
-	err := &app.FindingsError{Findings: []domain.Finding{{Where: "machines.services.secrets", Message: `"Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters`}}}
-	r := executeDeps(t, secretsDeps(&fakeSecrets{err: err}), "secrets", "list")
-	if !errors.Is(r.err, ErrChecksFailed) {
-		t.Fatalf("err = %v, want ErrChecksFailed", r.err)
+	tests := []struct {
+		name    string
+		finding domain.Finding
+		want    string
+	}{
+		{
+			name:    "plain message",
+			finding: domain.Finding{Where: "machines.services.secrets", Message: `"Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
+			want:    "FAIL  machines.services.secrets  \"Bad\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
+		},
+		{
+			// A secret name that itself contains "; " must not fool the
+			// renderer into splitting mid-name: the whole message stays on
+			// one line, unsplit.
+			name:    "semicolon inside quoted name",
+			finding: domain.Finding{Where: "machines.services.secrets", Message: `"a; b" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
+			want:    "FAIL  machines.services.secrets  \"a; b\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
+		},
 	}
-	want := "FAIL  machines.services.secrets  \"Bad\" is not a valid secret name\n      hint: use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n"
-	if r.stdout.String() != want {
-		t.Fatalf("stdout = %q, want %q", r.stdout.String(), want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := &app.FindingsError{Findings: []domain.Finding{tt.finding}}
+			r := executeDeps(t, secretsDeps(&fakeSecrets{err: err}), "secrets", "list")
+			if !errors.Is(r.err, ErrChecksFailed) {
+				t.Fatalf("err = %v, want ErrChecksFailed", r.err)
+			}
+			if r.stdout.String() != tt.want {
+				t.Fatalf("stdout = %q, want %q", r.stdout.String(), tt.want)
+			}
+		})
 	}
 }
 

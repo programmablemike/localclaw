@@ -21,7 +21,7 @@ commands that exist today.
 lclaw [--output text|json] [--verbose] <command> [arguments]
 ```
 
-Global flags come before the command name.
+Global flags may appear before or after the command name.
 
 ## Global flags
 
@@ -70,17 +70,17 @@ Prints a shell completion script: `lclaw completion bash`, `zsh`, `fish` or
 
 ## Exit codes
 
-| Code  | Meaning                                                            |
-| ----- | ------------------------------------------------------------------ |
-| `0`   | Success. Warnings do not change the exit code.                     |
-| `1`   | At least one `doctor` check failed, or an unexpected error occurred |
-| `2`   | Usage error: unknown flag, or an invalid `--output` value          |
-| `130` | Interrupted by SIGINT or SIGTERM                                   |
+| Code  | Meaning                                                                    |
+| ----- | -------------------------------------------------------------------------- |
+| `0`   | Success. Warnings do not change the exit code.                             |
+| `1`   | At least one `doctor` check failed, or an unexpected error occurred        |
+| `2`   | Usage error: unknown flag, unknown command, or an invalid `--output` value |
+| `130` | Interrupted by SIGINT or SIGTERM                                           |
 
 ## JSON output
 
-With `--output json` every command prints one indented JSON document on
-standard output. Logs never go to standard output.
+With `--output json`, `doctor` and `version` print one indented JSON document
+on standard output. Logs never go to standard output.
 
 ### `doctor`
 

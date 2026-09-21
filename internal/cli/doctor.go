@@ -23,7 +23,7 @@ func doctorCommand(d Deps) *ucli.Command {
 				return err
 			}
 			w := cmd.Root().Writer
-			if cmd.Root().String("output") == "json" {
+			if jsonOutput(cmd) {
 				if err := renderReportJSON(w, report); err != nil {
 					return err
 				}

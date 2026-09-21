@@ -34,11 +34,14 @@ type BuildInfo struct {
 type Deps struct {
 	Doctor     DoctorRunner
 	Init       InitRunner
+	Secrets    SecretsRunner
 	Build      BuildInfo
 	DefaultDir string         // the scaffold directory when --dir and LCLAW_DIR are unset; empty when the home directory is unknown
 	Level      *slog.LevelVar // raised to Debug by --verbose; may be nil
 	Stdout     io.Writer
 	Stderr     io.Writer
+	Stdin      io.Reader                           // value input for `secrets set` when stdin is not a terminal
+	Prompt     func(prompt string) ([]byte, error) // no-echo prompt; nil when stdin is not a terminal
 }
 
 // New builds the root command. Run it with (ctx, os.Args); it returns the
@@ -91,6 +94,7 @@ func New(d Deps) *ucli.Command {
 		ExitErrHandler: func(context.Context, *ucli.Command, error) {},
 		Commands: []*ucli.Command{
 			doctorCommand(d),
+			secretsCommand(d),
 			initCommand(d),
 			versionCommand(d),
 		},
@@ -127,4 +131,9 @@ func scaffoldDir(cmd *ucli.Command) (string, error) {
 		return "", usage(cmd, errors.New("no scaffold directory: pass --dir or set LCLAW_DIR"))
 	}
 	return dir, nil
+}
+
+// jsonOutput reports whether --output json is in effect.
+func jsonOutput(cmd *ucli.Command) bool {
+	return cmd.Root().String("output") == "json"
 }

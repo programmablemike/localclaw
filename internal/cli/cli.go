@@ -41,7 +41,7 @@ type Deps struct {
 	Stdout     io.Writer
 	Stderr     io.Writer
 	Stdin      io.Reader                           // value input for `secrets set` when stdin is not a terminal
-	Prompt     func(prompt string) ([]byte, error) // no-echo prompt; nil when stdin is not a terminal
+	Prompt     func(prompt string) ([]byte, error) // no-echo prompt, set only when stdin is a terminal, and used by readValue in preference to Stdin whenever it is set
 }
 
 // New builds the root command. Run it with (ctx, os.Args); it returns the

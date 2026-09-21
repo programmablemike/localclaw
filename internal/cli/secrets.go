@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	ucli "github.com/urfave/cli/v3"
 
@@ -66,7 +65,7 @@ func secretsList(d Deps) *ucli.Command {
 			}
 			rows, err := d.Secrets.List(ctx, dir)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			w := cmd.Root().Writer
 			if jsonOutput(cmd) {
@@ -95,7 +94,7 @@ func secretsDescribe(d Deps) *ucli.Command {
 			}
 			detail, err := d.Secrets.Describe(ctx, dir, name)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			w := cmd.Root().Writer
 			if jsonOutput(cmd) {
@@ -129,7 +128,7 @@ func secretsSet(d Deps) *ucli.Command {
 			}
 			o, err := d.Secrets.Set(ctx, dir, name, value)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			return renderOutcome(cmd, "set", o)
 		},
@@ -167,7 +166,7 @@ func secretsUpdate(d Deps) *ucli.Command {
 			}
 			o, err := d.Secrets.Update(ctx, dir, name, value, generate)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			return renderOutcome(cmd, "updated", o)
 		},
@@ -191,7 +190,7 @@ func secretsDelete(d Deps) *ucli.Command {
 			}
 			o, err := d.Secrets.Delete(ctx, dir, name)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			return renderOutcome(cmd, "deleted", o)
 		},
@@ -215,7 +214,7 @@ func secretsGet(d Deps) *ucli.Command {
 			}
 			value, err := d.Secrets.Get(ctx, dir, name)
 			if err != nil {
-				return report(cmd, err)
+				return reportFindings(cmd, err)
 			}
 			_, err = cmd.Root().Writer.Write(value)
 			return err
@@ -235,10 +234,11 @@ func nameArg(cmd *ucli.Command) (string, error) {
 	return args.First(), nil
 }
 
-// readValue gets the value for set and update: from --from-file, else from
-// stdin when it is not a terminal, else from a prompt that does not echo.
-// A file or a pipe has exactly one trailing newline removed, because no
-// real key ends with one and a stray one fails silently.
+// readValue gets the value for set and update. --from-file wins; otherwise
+// the prompt when the composition root supplied one, which it does only
+// when stdin is a terminal; otherwise the value is read from stdin. A file
+// or a pipe has exactly one trailing newline removed, because no real key
+// ends with one and a stray one fails silently.
 func readValue(cmd *ucli.Command, d Deps, name string) ([]byte, error) {
 	if path := cmd.String("from-file"); path != "" {
 		b, err := os.ReadFile(path)
@@ -248,10 +248,14 @@ func readValue(cmd *ucli.Command, d Deps, name string) ([]byte, error) {
 		return trimNewline(b), nil
 	}
 	if d.Prompt != nil {
-		return d.Prompt("value for " + name + ": ")
+		b, err := d.Prompt("value for " + name + ": ")
+		if err != nil {
+			return nil, fmt.Errorf("prompt for value: %w", err)
+		}
+		return b, nil
 	}
 	if d.Stdin == nil {
-		return nil, errors.New("no value: pass --from-file or pipe the value on stdin")
+		return nil, usage(cmd, errors.New("no value: pass --from-file or pipe the value on stdin"))
 	}
 	b, err := io.ReadAll(d.Stdin)
 	if err != nil {
@@ -265,10 +269,10 @@ func trimNewline(b []byte) []byte {
 	return bytes.TrimSuffix(b, []byte("\r"))
 }
 
-// report renders findings carried by err as a doctor-style report and
-// turns them into ErrChecksFailed. Any other error passes through for the
-// composition root to print.
-func report(cmd *ucli.Command, err error) error {
+// reportFindings renders findings carried by err as a doctor-style report
+// and turns them into ErrChecksFailed. Any other error passes through for
+// the composition root to print.
+func reportFindings(cmd *ucli.Command, err error) error {
 	var fe *app.FindingsError
 	if !errors.As(err, &fe) {
 		return err
@@ -286,19 +290,17 @@ func report(cmd *ucli.Command, err error) error {
 }
 
 // findingsToChecks turns catalogue findings into the checks the report
-// renderers understand. A domain.Finding carries only Where and Message;
-// NewCatalogue writes Message as "problem; hint" when there is advice to
-// give, so the first "; " splits it into the check's summary and hint, the
-// same shape doctor's own checks use. Where becomes the check's name, and
-// every finding is a failure: NewCatalogue only ever reports problems.
+// renderers understand. A domain.Finding carries only Where and Message,
+// and Message is rendered whole as the check's Summary with no Hint: it is
+// not split on "; ", because NewCatalogue interpolates the user's secret
+// name into Message with %q before any such separator, and a malformed
+// name that itself contains "; " would otherwise split in the wrong place.
+// Where becomes the check's name, and every finding is a failure:
+// NewCatalogue only ever reports problems.
 func findingsToChecks(findings []domain.Finding) []domain.Check {
 	checks := make([]domain.Check, 0, len(findings))
 	for _, f := range findings {
-		c := domain.Check{Name: f.Where, Status: domain.Fail, Summary: f.Message}
-		if summary, hint, ok := strings.Cut(f.Message, "; "); ok {
-			c.Summary, c.Hint = summary, hint
-		}
-		checks = append(checks, c)
+		checks = append(checks, domain.Check{Name: f.Where, Status: domain.Fail, Summary: f.Message})
 	}
 	return checks
 }

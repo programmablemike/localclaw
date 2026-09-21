@@ -1,7 +1,9 @@
 # LocalClaw: LiteLLM proxy. Its configuration is the ConfigMap below,
-# mounted at /etc/litellm; the master key and the database URL come from
-# secrets by name. Provider API keys arrive the same way once the secrets
-# design lands.
+# mounted at /etc/litellm; the master key, the salt key and the database
+# password come from secrets by name. LiteLLM composes DATABASE_URL from
+# the DATABASE_* variables below, so the password stays one secret.
+# Provider API keys arrive the same way once the secrets implementation
+# lands.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -37,12 +39,23 @@ spec:
           valueFrom:
             secretKeyRef:
               name: litellm-master-key
-              key: key
-        - name: DATABASE_URL
+              key: value
+        - name: LITELLM_SALT_KEY
           valueFrom:
             secretKeyRef:
-              name: litellm-database-url
-              key: url
+              name: litellm-salt-key
+              key: value
+        - name: DATABASE_HOST
+          value: litellm-db
+        - name: DATABASE_USERNAME
+          value: litellm
+        - name: DATABASE_NAME
+          value: litellm
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: litellm-db-password
+              key: value
       ports:
         - containerPort: 4000
       volumeMounts:

@@ -197,7 +197,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: openclaw-gateway-token
-              key: token
+              key: value
       volumeMounts:
         - name: state
           mountPath: /home/node/.openclaw
@@ -546,6 +546,10 @@ recorded so the page stays accurate.
   such document per referenced name from the Pod files and plays it first.
 - **Image tags** were chosen on 2026-09-20 as the newest stable tag of each
   upstream; the [scaffold reference](../reference/scaffold.md) lists them.
+- **Secret keys follow the secrets design.** Every injected secret has the
+  single key `value`; the LiteLLM pod composes `DATABASE_URL` from
+  `DATABASE_*` variables so the database password is one secret, and it
+  also consumes `litellm-salt-key`.
 
 ## What landed with the code
 

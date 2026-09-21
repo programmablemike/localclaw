@@ -66,7 +66,7 @@ lists them. Create each one from a Kubernetes `Secret` document fed on
 standard input so no value lands in a file:
 
 ```bash
-printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: openclaw-gateway-token\nstringData:\n  token: %s\n' "$(openssl rand -hex 32)" \
+printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: openclaw-gateway-token\nstringData:\n  value: %s\n' "$(openssl rand -hex 32)" \
   | podman --connection lclaw-agent kube play -
 ```
 

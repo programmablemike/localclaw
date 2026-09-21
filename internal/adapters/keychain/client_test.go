@@ -90,6 +90,41 @@ func TestPutDuplicateIsSecretExists(t *testing.T) {
 	}
 }
 
+// TestPutRedactsHexValueOnFailure covers the case where security -i echoes
+// the offending stdin line back on stderr: the hex-encoded value (and the
+// raw value it decodes to) must never reach the wrapped error, while an
+// unrelated diagnostic line and the exit status survive.
+func TestPutRedactsHexValueOnFailure(t *testing.T) {
+	path := existingKeychain(t)
+	f := exec.NewFake()
+	stdinLine := `add-generic-password -a k -s lclaw -D "LocalClaw secret" -j user -X 736b2d616263 "` + path + `"` + "\n"
+	f.Script("security", []string{"-i"}, exec.Response{Err: &exec.ExitError{
+		Code:   1,
+		Stderr: stdinLine + "security: some diagnostic message\n",
+	}})
+	err := (&Client{Runner: f}).Put(context.Background(), path, "k", []byte("sk-abc"), domain.User, false)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "736b2d616263") {
+		t.Fatalf("error leaks the hex value: %s", msg)
+	}
+	if strings.Contains(msg, "sk-abc") {
+		t.Fatalf("error leaks the raw value: %s", msg)
+	}
+	if !strings.Contains(msg, "some diagnostic message") {
+		t.Fatalf("error dropped the diagnostic line: %s", msg)
+	}
+	if !strings.Contains(msg, "exit status 1") {
+		t.Fatalf("error dropped the exit status: %s", msg)
+	}
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.Code != 1 {
+		t.Fatalf("errors.As = %v, %v, want an *exec.ExitError{Code: 1}", ee, err)
+	}
+}
+
 func TestPutRefusesMissingKeychain(t *testing.T) {
 	// security add-generic-password with a missing keychain path writes to
 	// the default keychain and exits 0. The adapter must never get there.

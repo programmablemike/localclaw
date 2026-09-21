@@ -6,6 +6,12 @@ import (
 	"testing"
 )
 
+func TestIsTerminalNil(t *testing.T) {
+	if IsTerminal(nil) {
+		t.Fatal("a nil file is not a terminal")
+	}
+}
+
 func TestIsTerminalFalseForPipe(t *testing.T) {
 	r, w, err := os.Pipe()
 	if err != nil {

@@ -19,7 +19,8 @@ var ErrInitFailed = errors.New("init did not complete")
 // status. It is the only place that mapping lives.
 //
 //	0   success, including warnings
-//	1   failed checks, failed init writes or any unexpected error
+//	1   failed checks, failed init writes, a failed keychain step or any
+//	    unexpected error
 //	2   usage error (unknown flag, bad --output value)
 //	130 interrupted
 func ExitCode(err error) int {

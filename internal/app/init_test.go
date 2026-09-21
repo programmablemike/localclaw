@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -203,9 +204,11 @@ func TestInitStopsWhenCancelled(t *testing.T) {
 	}
 }
 
+// newInitWithKeychain returns an Init wired by newInitForTest, which sets
+// all five ports (Defaults, Writer, Scaffold, Topology and Keychain), then
+// swaps in kc for the keychain port and a loader that returns topo.
 func newInitWithKeychain(kc *fakeKeychain, topo domain.Topology) *Init {
-	i := newInitForTest() // the existing helper that wires Defaults and Writer
-	i.Scaffold = &fakeScaffold{}
+	i := newInitForTest()
 	i.Topology = &fakeLoader{topo: topo}
 	i.Keychain = kc
 	return i
@@ -251,8 +254,71 @@ func TestInitKeychainFailureIsReportedNotReturned(t *testing.T) {
 	if rep.Keychain.State != KeychainFailed || rep.Keychain.Err == nil {
 		t.Fatalf("Keychain = %+v", rep.Keychain)
 	}
+	if rep.Keychain.Path != kcPath {
+		t.Fatalf("Path = %q, want %q to survive a create failure", rep.Keychain.Path, kcPath)
+	}
 	if rep.Ok() {
 		t.Fatal("Ok() must be false when the keychain step failed")
+	}
+}
+
+// TestInitKeychainStepReportsATopologyFailure covers the scaffold failing
+// to open: the error must be wrapped and prefixed as a topology problem,
+// not left bare where the CLI would blame the keychain for it, and the
+// keychain port must never be touched.
+func TestInitKeychainStepReportsATopologyFailure(t *testing.T) {
+	boom := errors.New("open dir: permission denied")
+	kc := &fakeKeychain{}
+	i := newInitWithKeychain(kc, servicesTopology())
+	i.Scaffold = &fakeScaffold{err: boom}
+	rep, err := i.Run(context.Background(), "/d", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Keychain.State != KeychainFailed {
+		t.Fatalf("State = %v, want KeychainFailed", rep.Keychain.State)
+	}
+	if rep.Keychain.Path != "" {
+		t.Fatalf("Path = %q, want empty: the topology could not be read", rep.Keychain.Path)
+	}
+	if !errors.Is(rep.Keychain.Err, boom) {
+		t.Fatalf("Err = %v, want it to wrap %v", rep.Keychain.Err, boom)
+	}
+	if !strings.HasPrefix(rep.Keychain.Err.Error(), "init: topology: ") {
+		t.Fatalf("Err = %q, want prefix %q", rep.Keychain.Err.Error(), "init: topology: ")
+	}
+	if len(kc.calls) != 0 {
+		t.Fatalf("keychain calls = %v, want none: a topology failure must never touch the keychain", kc.calls)
+	}
+}
+
+// TestInitKeychainStepReportsAnExistsError covers the keychain port itself
+// failing: the error must be wrapped and prefixed as a keychain problem,
+// the path must still be reported (it came from the topology, which did
+// load), and Create must never be attempted.
+func TestInitKeychainStepReportsAnExistsError(t *testing.T) {
+	boom := errors.New("keychain: stat: permission denied")
+	kc := &fakeKeychain{existsErr: boom}
+	rep, err := newInitWithKeychain(kc, servicesTopology()).Run(context.Background(), "/d", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Keychain.State != KeychainFailed {
+		t.Fatalf("State = %v, want KeychainFailed", rep.Keychain.State)
+	}
+	if rep.Keychain.Path != kcPath {
+		t.Fatalf("Path = %q, want %q", rep.Keychain.Path, kcPath)
+	}
+	if !errors.Is(rep.Keychain.Err, boom) {
+		t.Fatalf("Err = %v, want it to wrap %v", rep.Keychain.Err, boom)
+	}
+	if !strings.HasPrefix(rep.Keychain.Err.Error(), "init: keychain: ") {
+		t.Fatalf("Err = %q, want prefix %q", rep.Keychain.Err.Error(), "init: keychain: ")
+	}
+	for _, c := range kc.calls {
+		if strings.HasPrefix(c, "create") {
+			t.Fatalf("keychain calls = %v, want no create call after an exists error", kc.calls)
+		}
 	}
 }
 

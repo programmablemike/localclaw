@@ -53,3 +53,6 @@ than read, so it must be accurate, complete and predictable in structure.
 - [Scaffold reference](scaffold.md): Layout of the lclaw scaffold directory,
   the lclaw.toml schema and validation rules, the Pod file conventions, and
   what lclaw init does to each file.
+- [Secrets reference](secrets.md): The secret catalogue, the keychain
+  layout, the lclaw.toml keys, the secrets command flags, output shapes,
+  store states and exit codes.

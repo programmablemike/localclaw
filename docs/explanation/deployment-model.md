@@ -4,10 +4,11 @@ description: "Why each workload is a Containerfile over its upstream image plus 
 diataxis: explanation
 status: stable
 last_reviewed: 2026-09-21
-tags: [deployment, podman, containers, kube-play, scaffold, iac, design-decision]
+tags: [deployment, podman, containers, kube-play, scaffold, secrets, iac, design-decision]
 related:
   - ../../README.md
   - cli-architecture.md
+  - secrets-management.md
   - ../reference/scaffold.md
   - ../reference/cli.md
   - ../how-to/apply-a-deployment-by-hand.md
@@ -221,6 +222,10 @@ are they, and what runs on each.
 schema = 1
 provider = "libkrun"
 
+# The keychain holding the secrets lclaw injects into the machines.
+[keychain]
+path = "~/Library/Keychains/lclaw.keychain-db"
+
 [machines.infra]
 cpus = 1
 memory-mib = 1024
@@ -232,6 +237,7 @@ cpus = 2
 memory-mib = 4096
 disk-gib = 30
 workloads = ["litellm-db", "litellm", "agentgateway"]
+secrets = ["anthropic-api-key"]
 
 [machines.agent]
 cpus = 2
@@ -251,8 +257,12 @@ variable. The default sizes total five CPUs and nine GiB, which fits a
 recommendations.
 
 Each machine table also accepts an optional `volumes` list of
-`host:guest` strings, empty by default. Validation lives in the domain and
-returns findings rather than errors, like `doctor`'s checks:
+`host:guest` strings, empty by default. The top-level `[keychain]` table
+and each machine's `secrets` list belong to
+[Secrets management](secrets-management.md), which names the keychain that
+holds the values and the items each machine receives on `up`. Validation
+lives in the domain and returns findings rather than errors, like
+`doctor`'s checks:
 
 - Every workload named in the file has a directory containing both
   `Containerfile` and `pod.yaml`.
@@ -397,13 +407,26 @@ person through the same sequence by hand.
 1. `podman machine inspect lclaw-<role>`. If it fails with not found, run the
    `init` command above.
 2. `podman machine start lclaw-<role>`. Already running is success.
-3. For each workload in the order listed in `lclaw.toml`:
+3. **Resolve**, from [Secrets management](secrets-management.md): read
+   every catalogue entry naming this machine out of the keychain,
+   generating or minting what is missing. A missing user secret is a
+   finding; if there are any, all of them are reported and the machine
+   stops here without Podman being touched.
+4. **Inject**, from the same design:
+   `podman --connection lclaw-<role> secret create --replace` for each
+   resolved value, wrapped as a Kubernetes `Secret` with the single key
+   `value`.
+5. For each workload in the order listed in `lclaw.toml`:
    1. `podman --connection lclaw-<role> build --tag localhost/lclaw/<workload>:latest workloads/<workload>`
    2. `podman --connection lclaw-<role> kube play --replace workloads/<workload>/pod.yaml`
 
 **Down** runs `kube down` for each workload in reverse order, then
-`podman machine stop`. Named volumes survive. **Destroy** is
-`podman machine rm --force`, which removes the disk and everything on it.
+**purges** the secrets that the secrets design injected — every secret in
+the machine's store carrying the `app.kubernetes.io/part-of=localclaw`
+label, and the named volume of the same name where `kube play` made one —
+and then `podman machine stop`. Named volumes other than those survive.
+**Destroy** is `podman machine rm --force`, which removes the disk and
+everything on it.
 
 Every step is idempotent: `inspect` guards `init`, `start` tolerates
 running, `build` is cached by layer, and `--replace` recreates a pod that

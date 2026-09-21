@@ -3,12 +3,13 @@ title: "CLI architecture"
 description: "Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design."
 diataxis: explanation
 status: stable
-last_reviewed: 2026-09-20
+last_reviewed: 2026-09-21
 tags: [cli, architecture, hexagonal, go, dependencies, design-decision]
 related:
   - ../../README.md
   - ../../AGENTS.md
   - deployment-model.md
+  - secrets-management.md
 ---
 
 # CLI architecture
@@ -366,15 +367,22 @@ Measured on 2026-09-20 with Go 1.26.7, one throwaway module per library:
 | `alecthomas/kong`         | 4        | 1      | assert, repr, gotextdiff, all test-only                |
 | `peterbourgon/ff/v4`      | 3        | 1      | go-toml and yaml.v2, runtime if its parsers are used   |
 | `google/go-cmp`           | 1        | 1      | none                                                   |
+| `BurntSushi/toml`         | 1        | 1      | none                                                   |
 | `golang.org/x/term`       | 2        | 2      | x/sys                                                  |
 | `golang.org/x/crypto`     | 5        | 1      | x/sys, x/term, x/net, x/text                           |
 | `spf13/viper`             | 26       | 13     | fsnotify, afero, mapstructure, cast and more           |
 | `stretchr/testify`        | 3        | 2      | yaml.v3                                                |
 | Podman Go bindings        | 382      | 97     | the entire containers stack                            |
 
-The first implementation has exactly one runtime dependency, `urfave/cli/v3`,
-and no test-only dependencies. Everything else the design needs has a
-standard-library answer.
+`golang.org/x/term` was re-measured on 2026-09-21, with the versions now
+vendored: two modules in the graph, `golang.org/x/term` v0.46.0 and
+`golang.org/x/sys` v0.48.0, both linked, no cgo.
+
+The code has three runtime dependencies and no test-only dependencies:
+`github.com/urfave/cli/v3` for the command tree,
+`github.com/BurntSushi/toml` for `lclaw.toml`, and `golang.org/x/term` for
+the no-echo secret prompt, which pulls in `golang.org/x/sys`. Everything
+else the design needs has a standard-library answer.
 
 | Need                         | Standard library answer                                   |
 | ---------------------------- | --------------------------------------------------------- |
@@ -382,16 +390,19 @@ standard-library answer.
 | Error wrapping and joining   | `errors`, `fmt.Errorf` with `%w`                          |
 | Running Podman and Flox      | `os/exec` behind the `Runner` port                        |
 | Aligned text and JSON        | `fmt` padding verbs, `encoding/json`                      |
-| TTY detection                | `os.Stdout.Stat()` and `ModeCharDevice`                   |
+| TTY detection                | `term.IsTerminal`, alongside the no-echo prompt it ships with |
 | Parallel machine operations  | `sync.WaitGroup.Go` and `errors.Join`, when needed later  |
 | WireGuard keys, if ever host-side | `crypto/ecdh.X25519()` produces the 32-byte keys      |
 | Build and version metadata   | `runtime/debug.ReadBuildInfo`                             |
 | Signals and cancellation     | `os/signal.NotifyContext`, `context`                      |
 | Import-boundary test         | `go/parser` in `ImportsOnly` mode                         |
 
-A configuration file is out of scope for this slice. When one arrives it
-should be TOML, because Flox manifests are TOML and both mature Go parsers are
-self-contained modules, but the dependency is not added until it is used.
+The configuration file arrived with the
+[deployment model](deployment-model.md): `lclaw.toml` is decoded by
+`github.com/BurntSushi/toml`, chosen over `github.com/pelletier/go-toml/v2`,
+which measured the same one module in the graph and one linked, for its
+wider use and for `MetaData.Undecoded`, which is how the loader rejects
+unknown keys instead of letting a typo become a default.
 
 ## Testing
 

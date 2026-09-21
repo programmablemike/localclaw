@@ -9,9 +9,9 @@ Run OpenClaw agents in isolated containers on macOS.
 LocalClaw has two goals: isolate the agent from the host machine, and make
 setup and operation easy and reliable. Everything else follows from those two.
 
-> **Status:** pre-alpha. The `lclaw` skeleton, `lclaw doctor` and `lclaw init`
-> exist; no release has been cut. The rest of this README describes the
-> intended design.
+> **Status:** pre-alpha. The `lclaw` skeleton, `lclaw doctor`, `lclaw init`
+> and `lclaw secrets` exist; no release has been cut. The rest of this README
+> describes the intended design.
 
 ## Architecture
 
@@ -30,6 +30,11 @@ set of responsibilities.
 | `infra`    | WireGuard server, Kuma control plane, ingress/egress gateway                       | Overlay network, mesh policy, and the only way in or out |
 | `services` | [LiteLLM](https://github.com/BerriAI/litellm) proxy (stateful mode) with its [Postgres](https://www.postgresql.org) database, Agent Gateway | Shared model and agent gateway services                  |
 | `agent`    | An OpenClaw agent                                                                  | The untrusted workload                                   |
+
+Secrets live in a dedicated macOS keychain that `lclaw init` creates, and
+are injected into the machine that needs them as Podman secrets; pod files
+reference them by name and never hold a value. See
+[Secrets management](docs/explanation/secrets-management.md).
 
 ### Network model
 

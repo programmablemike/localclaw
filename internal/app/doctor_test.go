@@ -65,7 +65,7 @@ func TestDoctorAllPass(t *testing.T) {
 	}
 	want := domain.Report{Checks: []domain.Check{
 		{Name: "flox", Status: domain.Pass, Summary: "1.13.1 (minimum 1.0.0)"},
-		{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.0.0)"},
+		{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.8.0)"},
 		{Name: "lclaw-infra", Status: domain.Pass, Summary: "running"},
 		{Name: "lclaw-services", Status: domain.Pass, Summary: "running"},
 		{Name: "lclaw-agent", Status: domain.Pass, Summary: "stopped"},
@@ -113,7 +113,7 @@ func TestDoctorPodmanMissingSkipsMachines(t *testing.T) {
 }
 
 func TestDoctorPodmanTooOldSkipsMachines(t *testing.T) {
-	rt := &fakeRuntime{version: domain.Version{Major: 4, Minor: 9, Patch: 3, Raw: "4.9.3"}}
+	rt := &fakeRuntime{version: domain.Version{Major: 5, Minor: 7, Patch: 2, Raw: "5.7.2"}}
 	d := &Doctor{Runtime: rt, Envs: &fakeEnvs{version: flox1131}}
 	r, err := d.Run(context.Background())
 	if err != nil {
@@ -124,6 +124,9 @@ func TestDoctorPodmanTooOldSkipsMachines(t *testing.T) {
 	}
 	if r.Checks[1].Status != domain.Fail {
 		t.Errorf("podman check = %+v, want Fail", r.Checks[1])
+	}
+	if r.Checks[1].Summary != "5.7.2 is older than the minimum 5.8.0" {
+		t.Errorf("podman summary = %q", r.Checks[1].Summary)
 	}
 }
 

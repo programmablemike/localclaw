@@ -42,25 +42,8 @@ type fakeEnvs struct {
 
 func (f *fakeEnvs) Version(ctx context.Context) (domain.Version, error) { return f.version, f.err }
 
-// fakeScaffold is a DirOpener that returns a fixed file system or error.
-type fakeScaffold struct {
-	fsys fs.FS
-	err  error
-	dir  string // the dir OpenDir received
-}
-
-func (f *fakeScaffold) OpenDir(dir string) (fs.FS, error) {
-	f.dir = dir
-	return f.fsys, f.err
-}
-
-// fakeLoader is a TopologyLoader that returns a fixed topology or error.
-type fakeLoader struct {
-	top domain.Topology
-	err error
-}
-
-func (f *fakeLoader) Load(fs.FS) (domain.Topology, error) { return f.top, f.err }
+// fakeScaffold and fakeLoader are declared once, in fakes_test.go, and
+// shared by every test file in this package.
 
 const dirArg = "/home/test/.config/lclaw"
 
@@ -103,7 +86,7 @@ func healthy() *Doctor {
 		Runtime:  &fakeRuntime{version: podman584, machines: allThree},
 		Envs:     &fakeEnvs{version: flox1131},
 		Scaffold: &fakeScaffold{fsys: fullScaffold()},
-		Topology: &fakeLoader{top: defaultTopology()},
+		Topology: &fakeLoader{topo: defaultTopology()},
 	}
 }
 
@@ -133,8 +116,8 @@ func TestDoctorAllPass(t *testing.T) {
 	if !reflect.DeepEqual(r, want) {
 		t.Fatalf("Run() =\n%+v\nwant\n%+v", r, want)
 	}
-	if got := d.Scaffold.(*fakeScaffold).dir; got != dirArg {
-		t.Errorf("OpenDir received %q, want %q", got, dirArg)
+	if got := d.Scaffold.(*fakeScaffold).dirs; !reflect.DeepEqual(got, []string{dirArg}) {
+		t.Errorf("OpenDir received %v, want [%q]", got, dirArg)
 	}
 }
 
@@ -274,7 +257,7 @@ func TestDoctorTopologyFindingsAreEachAFailedCheck(t *testing.T) {
 	d := healthy()
 	top := defaultTopology()
 	top.Machines[0].CPUs = 0
-	d.Topology = &fakeLoader{top: top}
+	d.Topology = &fakeLoader{topo: top}
 	scaffold := fullScaffold()
 	delete(scaffold, "workloads/openclaw/pod.yaml")
 	d.Scaffold = &fakeScaffold{fsys: scaffold}

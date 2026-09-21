@@ -11,8 +11,13 @@ import (
 	"golang.org/x/term"
 )
 
-// IsTerminal reports whether f is attached to a terminal.
+// IsTerminal reports whether f is attached to a terminal. A nil f is never
+// a terminal; this is checked explicitly rather than relying on os.File's
+// own nil handling in Fd().
 func IsTerminal(f *os.File) bool {
+	if f == nil {
+		return false
+	}
 	return term.IsTerminal(int(f.Fd()))
 }
 

@@ -3,7 +3,7 @@ title: "Single machine"
 description: "Why LocalClaw runs on one Podman machine with one network per zone, not three machines, what Podman on macOS allows, and what changes in lclaw.toml."
 diataxis: explanation
 status: draft
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [podman, machine, network, topology, isolation, kuma, design-decision]
 related:
   - ../../README.md
@@ -232,7 +232,9 @@ check per zone network when the machine is running.
 ## What lands with the code
 
 - `docs/reference/scaffold.md`: the `schema = 2` topology and its rules.
-- The README architecture section and diagram.
+  The README, the reference pages and the how-to guides already describe
+  or point to this shape; the reference and how-to pages carry a
+  "Changing" note until the code matches them.
 - The `lclaw.toml` loader, `Validate`, `init`'s embedded defaults, and
   `doctor`'s machine and network checks.
 - The [lifecycle commands](lifecycle-commands.md) that create the machine

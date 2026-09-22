@@ -3,7 +3,7 @@ title: "Secrets reference"
 description: "The secret catalogue, the keychain layout, the lclaw.toml keys, the secrets command flags, output shapes, store states and exit codes."
 diataxis: reference
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [secrets, keychain, podman, cli, lclaw, json, exit-codes]
 related:
   - cli.md
@@ -18,6 +18,13 @@ related:
 secret store of every running machine. This page describes the catalogue,
 the keychain, the configuration keys, the commands and their output. The
 reasoning is in [Secrets management](../explanation/secrets-management.md).
+
+> **Changing.** The "machines" column, the per-machine stores and the
+> `machines.<role>.secrets` keys reflect the current three-machine
+> scaffold. [Single machine](../explanation/single-machine.md) replaces
+> them with one store and `zones.<role>.secrets`; the commands' behaviour
+> is otherwise unchanged. This page is updated when the
+> [lifecycle commands](../explanation/lifecycle-commands.md) land.
 
 ## Catalogue
 

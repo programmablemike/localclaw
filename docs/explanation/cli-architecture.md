@@ -3,7 +3,7 @@ title: "CLI architecture"
 description: "Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design."
 diataxis: explanation
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [cli, architecture, hexagonal, go, dependencies, design-decision]
 related:
   - ../../README.md
@@ -14,13 +14,20 @@ related:
 
 # CLI architecture
 
-`lclaw` is the Go command-line tool that manages LocalClaw's Podman machines.
+`lclaw` is the Go command-line tool that manages LocalClaw's Podman machine.
 This page records the design agreed on 2026-09-20 for its first code: the
 layering, the dependency policy, the toolchain, and the one command,
 `lclaw doctor`, that proves the layering works end to end. It was written
 before the code existed and is the specification the implementation follows.
 Once the code lands, the facts in it (commands, flags, exit codes, output
 shapes) move to reference pages and the reasoning stays here.
+
+The examples below name three machines, `lclaw-infra`, `lclaw-services`
+and `lclaw-agent`, because that was the topology when this page was
+written. [Single machine](single-machine.md) replaced it on 2026-09-21
+with one machine and one network per zone; the layering, the ports and
+the report shape described here are unchanged by that, and the machine
+checks become one machine check plus one per network.
 
 ## Goals and constraints
 

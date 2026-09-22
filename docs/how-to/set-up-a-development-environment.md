@@ -3,7 +3,7 @@ title: "Set up a development environment"
 description: "Enter the Flox environment, run the check script, build lclaw from source and run doctor against your machine."
 diataxis: how-to
 status: stable
-last_reviewed: 2026-09-20
+last_reviewed: 2026-09-22
 tags: [development, flox, go, build, testing]
 related:
   - ../reference/cli.md
@@ -55,8 +55,8 @@ go build -o bin/lclaw ./cmd/lclaw
 bin/lclaw doctor
 ```
 
-`bin/` is ignored by git. `doctor` reports Flox, Podman and the three
-LocalClaw machines; see the
+`bin/` is ignored by git. `doctor` reports Flox, Podman, the scaffold and
+the LocalClaw machine checks; see the
 [command reference](../reference/cli.md) for what each line means.
 
 ### 4. Build the release package

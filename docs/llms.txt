@@ -8,7 +8,7 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and the `doctor`
 
 ## Start here
 
-- [LocalClaw README](../README.md): What LocalClaw is, the three-machine architecture and network model, the lclaw CLI, and where to find docs and contributor rules.
+- [LocalClaw README](../README.md): What LocalClaw is, the single-machine architecture with one network per zone, the lclaw CLI, and where to find docs and contributor rules.
 - [Documentation](README.md): Entry point to the localclaw docs: how the Diátaxis layout works and how to find or add the right kind of page.
 - [Contributor rules](../AGENTS.md): Worktree, pull request, commit message, documentation and release requirements for agents and humans.
 

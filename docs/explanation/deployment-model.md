@@ -3,7 +3,7 @@ title: "Deployment model"
 description: "Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them."
 diataxis: explanation
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [deployment, podman, containers, kube-play, scaffold, secrets, iac, design-decision]
 related:
   - ../../README.md

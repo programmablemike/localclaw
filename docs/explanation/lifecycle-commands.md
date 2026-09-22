@@ -3,7 +3,7 @@ title: "Lifecycle commands"
 description: "How lclaw up, down and status create the machine and networks, apply the zones in order, mint the agent's key, report every step and tear it down again."
 diataxis: explanation
 status: draft
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [cli, lclaw, up, down, status, podman, kube-play, litellm, design-decision]
 related:
   - cli-architecture.md

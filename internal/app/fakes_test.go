@@ -427,7 +427,7 @@ func servicesTopology() domain.Topology {
 		KeychainPath: kcPath,
 		Machine:      domain.MachineSpec{CPUs: 4, MemoryMiB: 8192, DiskGiB: 60},
 		Zones: []domain.ZoneSpec{
-			{Name: "infra", Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}, Bridges: map[domain.Workload][]string{"kuma-cp": {"services", "agent"}}},
+			{Name: "infra", Workloads: []domain.Workload{"kuma-cp", "gateway"}, Bridges: map[domain.Workload][]string{"kuma-cp": {"services", "agent"}}},
 			{Name: "services", Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}, Secrets: []string{"anthropic-api-key"}, Bridges: map[domain.Workload][]string{"agentgateway": {"agent"}}},
 			{Name: "agent", Internal: true, Workloads: []domain.Workload{"openclaw"}},
 		},

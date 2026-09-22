@@ -30,7 +30,7 @@ hypervisor.
 
 | Zone       | Runs                                                                               | Role                                                     |
 | ---------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `infra`    | Kuma control plane, ingress/egress gateway, WireGuard                              | Mesh policy, and the only way in or out                  |
+| `infra`    | Kuma control plane, ingress/egress gateway                                         | Mesh policy, and the only way in or out                  |
 | `services` | [LiteLLM](https://github.com/BerriAI/litellm) proxy (stateful mode) with its [Postgres](https://www.postgresql.org) database, Agent Gateway | Shared model and agent gateway services                  |
 | `agent`    | An OpenClaw agent                                                                  | The untrusted workload                                   |
 
@@ -64,7 +64,6 @@ flowchart LR
         subgraph infra["infra zone"]
             kuma["Kuma control plane"]
             gw["Ingress / egress gateway"]
-            wg["WireGuard"]
         end
         subgraph services["services zone"]
             litellm["LiteLLM proxy"]

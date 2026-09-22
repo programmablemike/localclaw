@@ -66,7 +66,7 @@ func TestUpFirstRunCreatesEverything(t *testing.T) {
 	want := []string{
 		"machine",
 		"network/infra", "network/services", "network/agent",
-		"infra/secrets", "infra/wireguard", "infra/kuma-cp", "infra/gateway",
+		"infra/secrets", "infra/kuma-cp", "infra/gateway",
 		"services/secrets", "services/litellm-db", "services/litellm", "services/agentgateway", "services/ready",
 		"agent/secrets", "agent/openclaw",
 	}
@@ -320,7 +320,7 @@ func TestDownAllStopsEverything(t *testing.T) {
 	want := []string{
 		"agent/openclaw", "network/agent",
 		"services/agentgateway", "services/litellm", "services/litellm-db", "network/services",
-		"infra/gateway", "infra/kuma-cp", "infra/wireguard", "network/infra",
+		"infra/gateway", "infra/kuma-cp", "network/infra",
 		"secrets", "machine",
 	}
 	if got := names(r); !reflect.DeepEqual(got, want) {
@@ -372,7 +372,7 @@ func TestDownContinuesPastAFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := statuses(r)
-	if st["services/litellm"] != domain.Fail || st["services/litellm-db"] != domain.Pass || st["infra/wireguard"] != domain.Pass {
+	if st["services/litellm"] != domain.Fail || st["services/litellm-db"] != domain.Pass || st["infra/gateway"] != domain.Pass {
 		t.Fatalf("checks = %+v", r.Checks)
 	}
 	if st["network/services"] != domain.Warn {

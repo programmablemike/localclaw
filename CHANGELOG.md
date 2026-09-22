@@ -23,6 +23,13 @@ versions follow [Semantic Versioning](https://semver.org).
 - Every default Pod file carries CPU and memory limits, and the `openclaw`
   Pod file drops all capabilities and forbids privilege escalation.
 
+### Removed
+
+- The `wireguard` workload. It existed to peer three machines; with one
+  machine, Kuma's sidecars carry their own mTLS across the zone bridges and
+  nothing needs a tunnel. The default `infra` zone is `kuma-cp` and
+  `gateway`, and the host no longer publishes 51820/udp.
+
 ### Changed
 
 - **One Podman machine instead of three.** Podman on macOS runs one

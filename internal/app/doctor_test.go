@@ -83,7 +83,7 @@ func TestDoctorAllPass(t *testing.T) {
 		floxPass,
 		podmanPass,
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
-		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 7 workloads"},
+		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 6 workloads"},
 		keychainPass,
 		{Name: "machine", Status: domain.Pass, Summary: "running"},
 		{Name: "network/infra", Status: domain.Pass, Summary: "present"},
@@ -129,7 +129,7 @@ func TestDoctorPodmanMissingSkipsMachines(t *testing.T) {
 		floxPass,
 		{Name: "podman", Status: domain.Fail, Summary: "not found", Hint: domain.PodmanRequirement.InstallHint},
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
-		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 7 workloads"},
+		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 6 workloads"},
 		keychainPass,
 		{Name: "machine", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
 	}}

@@ -24,7 +24,7 @@ disk-gib = 60
 # Each zone is a Podman network named lclaw-<zone>. A pod joins its own
 # zone's network, plus the networks of the zones its `bridges` entry names.
 [zones.infra]
-workloads = ["wireguard", "kuma-cp", "gateway"]
+workloads = ["kuma-cp", "gateway"]
 # The control plane must be reachable from every sidecar.
 bridges = { kuma-cp = ["services", "agent"] }
 

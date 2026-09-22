@@ -86,7 +86,7 @@ func TestEvaluateWorkloads(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("EvaluateWorkloads() =\n%+v\nwant\n%+v", got, want)
 	}
-	if got := EvaluateWorkloads(top, []Role{Infra}, []Pod{{Name: "kuma-cp"}}); got[1].Summary != "degraded: no containers" {
-		t.Fatalf("a pod with no containers should be degraded: %+v", got[1])
+	if got := EvaluateWorkloads(top, []Role{Infra}, []Pod{{Name: "kuma-cp"}}); got[0].Summary != "degraded: no containers" {
+		t.Fatalf("a pod with no containers should be degraded: %+v", got[0])
 	}
 }

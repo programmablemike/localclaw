@@ -1,7 +1,0 @@
-# LocalClaw: WireGuard server (provisional until the network design lands).
-# Derived from the upstream image so that customizing is an edit here, not a
-# new build system. Add RUN, COPY or ENV instructions below the FROM line and
-# rebuild by re-running `lclaw up` or the manual procedure in
-# docs/how-to/apply-a-deployment-by-hand.md. The digest pins the exact image;
-# a LocalClaw release bumps it.
-FROM docker.io/linuxserver/wireguard:1.0.20260223-r0-ls122@sha256:dca67384e3e9a5bcc288461fa983e6fcb0e248e5a2d8e5b3e5d3f753bfac3e35

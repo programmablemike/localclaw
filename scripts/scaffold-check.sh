@@ -18,7 +18,6 @@ lclaw=${1:?usage: scaffold-check.sh <path-to-lclaw>}
 # Workloads whose pod cannot start on a plain runner, one per line as
 # "<name> <reason>". Their images are still built; only kube play is skipped.
 SKIP='
-wireguard needs NET_ADMIN and the wireguard kernel module, which the runner lacks
 '
 
 skip_reason() {

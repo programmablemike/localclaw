@@ -431,6 +431,12 @@ above, the [command reference](../reference/cli.md) is the fact.
   nothing beyond CPython. A missing container maps to
   `ErrMinterUnavailable`, and the readiness error keeps only the last
   stderr line, which is the exception text.
+- **The playbook path is joined to the scaffold directory.** `podman
+  machine init --playbook` opens the path from the caller's working
+  directory, and the first real run was made from outside the scaffold
+  (`open machine/playbook.yaml: no such file or directory`). `up` now
+  passes the absolute path, as it already did for build contexts and Pod
+  files.
 - **No tutorial yet.** A tutorial must be guaranteed to work on a clean
   checkout, and a working agent still needs the network design to route
   it to LiteLLM.

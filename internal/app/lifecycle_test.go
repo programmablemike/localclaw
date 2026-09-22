@@ -80,7 +80,7 @@ func TestUpFirstRunCreatesEverything(t *testing.T) {
 		t.Fatalf("inits = %+v", f.runtime.inits)
 	}
 	init := f.runtime.inits[0]
-	if init.Name != "lclaw" || init.Provider != "libkrun" || init.CPUs != 4 || init.MemoryMiB != 8192 || init.DiskGiB != 60 || init.Playbook != "machine/playbook.yaml" {
+	if init.Name != "lclaw" || init.Provider != "libkrun" || init.CPUs != 4 || init.MemoryMiB != 8192 || init.DiskGiB != 60 || init.Playbook != dirArg+"/machine/playbook.yaml" {
 		t.Fatalf("init = %+v", init)
 	}
 	if !reflect.DeepEqual(f.runtime.calls, []string{"list", "init lclaw provider=libkrun", "start lclaw provider=libkrun"}) {

@@ -516,8 +516,15 @@ this list is the reason.
 - **Errors from `secret create` are redacted.** `Sensitive` on the runner
   governs logging only, and Podman may echo part of its stdin on a parse
   failure — and that stdin carries the base64-encoded value. The adapter
-  therefore strips every stderr line containing the encoded value before
-  it wraps the error.
+  therefore strips the offending stderr lines before it wraps the error.
+- **Redaction matches fragments, not the whole value.** An `ExitError`
+  carries only the trimmed last 1024 bytes of stderr, so an echoed value
+  longer than that arrives as a piece of itself, and a value the tool
+  wrapped across lines was never on one line to begin with. `exec.Redact`
+  therefore drops any line sharing a run of 16 or more characters with the
+  encoded value, which covers both; a shorter value is matched whole. The
+  keychain adapter uses the same helper for the hexadecimal `-X` argument
+  that `security -i` echoes back.
 
 **What the commands settled**
 

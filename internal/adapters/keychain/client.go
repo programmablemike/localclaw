@@ -134,8 +134,12 @@ func (c *Client) Put(ctx context.Context, path, name string, value []byte, sourc
 		line.WriteString(" -U")
 	}
 	line.WriteString(" -X " + hexValue + ` "` + path + `"` + "\n")
+	// stripPassword only drops the `password:` lines find-generic-password
+	// -g prints; it does not cover security -i echoing this
+	// add-generic-password line, whose -X argument carries the value
+	// hexadecimal-encoded, back on stderr on failure.
 	if _, err := c.run(ctx, path, []byte(line.String()), "-i"); err != nil {
-		return wrap("put "+name, redactHex(err, hexValue))
+		return wrap("put "+name, exec.Redact(err, hexValue))
 	}
 	return nil
 }
@@ -194,27 +198,6 @@ func (c *Client) run(ctx context.Context, path string, stdin []byte, args ...str
 		return res, uerr
 	}
 	return attempt()
-}
-
-// redactHex strips any stderr line carrying the hex-encoded value from err
-// before it is wrapped. stripPassword only drops the `password:` lines
-// find-generic-password -g prints; it does not cover security -i echoing
-// the offending add-generic-password line, whose -X argument carries the
-// value hex-encoded, back on stderr on failure. Non-exit errors pass
-// through untouched, and the exit code is kept.
-func redactHex(err error, hexValue string) error {
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		return err
-	}
-	lines := strings.Split(exitErr.Stderr, "\n")
-	kept := lines[:0]
-	for _, l := range lines {
-		if !strings.Contains(l, hexValue) {
-			kept = append(kept, l)
-		}
-	}
-	return &exec.ExitError{Code: exitErr.Code, Stderr: strings.TrimSpace(strings.Join(kept, "\n"))}
 }
 
 func exitCode(err error) int {

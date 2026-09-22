@@ -88,6 +88,37 @@ func TestStoreSecretErrorRedactsTheBody(t *testing.T) {
 	}
 }
 
+// TestStoreSecretErrorRedactsATruncatedBody covers the same echo after the
+// exec adapter has kept only the last 1024 bytes of stderr. Base64 of a 1 KiB
+// value is 1368 characters, so what survives is a fragment of the body rather
+// than the whole of it.
+func TestStoreSecretErrorRedactsATruncatedBody(t *testing.T) {
+	name, value := "litellm-master-key", bytes.Repeat([]byte("sk-abcdef"), 114) // 1026 bytes
+	body, err := kubeSecret(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := exec.NewFake()
+	args := []string{"--connection", "lclaw-services", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
+	f.Script("podman", args, exec.Response{Err: &exec.ExitError{
+		Code:   125,
+		Stderr: "Error: unable to decode input\n" + string(body[len(body)-900:]) + "\n",
+	}})
+
+	err = (&Client{Runner: f}).StoreSecret(context.Background(), domain.Services, name, value)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	b64 := base64.StdEncoding.EncodeToString(value)
+	if strings.Contains(err.Error(), b64[len(b64)-500:len(b64)-400]) {
+		t.Fatalf("err = %v, must not carry part of the base64 value", err)
+	}
+	if !strings.Contains(err.Error(), "unable to decode input") {
+		t.Fatalf("err = %v, must keep diagnostics", err)
+	}
+}
+
 func TestMachineRunning(t *testing.T) {
 	f := exec.NewFake()
 	f.Script("podman", []string{"machine", "list", "--format", "json"}, exec.Response{Stdout: fixture(t, "machine-list.json")})

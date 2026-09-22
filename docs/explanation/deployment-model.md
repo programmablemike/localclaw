@@ -9,6 +9,8 @@ related:
   - ../../README.md
   - cli-architecture.md
   - secrets-management.md
+  - single-machine.md
+  - lifecycle-commands.md
   - ../reference/scaffold.md
   - ../reference/cli.md
   - ../how-to/apply-a-deployment-by-hand.md
@@ -76,8 +78,12 @@ These were verified against Podman 5.8.4 and Flox 1.13.1 on 2026-09-20.
 - The machine image enables lingering for the `core` user but does not enable
   `podman-restart.service`, so containers do not come back after a VM reboot
   unless something arranges it.
-- Podman 5.7 made `libkrun` the default machine provider on macOS, and 5.8
-  allows `libkrun` and `applehv` machines to run at the same time.
+- Podman 5.7 made `libkrun` the default machine provider on macOS. This
+  page originally claimed that 5.8 allows `libkrun` and `applehv` machines
+  to run at the same time. That was wrong: Podman on macOS runs **one**
+  machine at a time, on any provider, by design. Verified on 2026-09-21
+  against the 6.1.2 source; see [Single machine](single-machine.md), which
+  supersedes the "Machines" section below.
 
 ## Scope
 
@@ -209,6 +215,15 @@ spec:
 ```
 
 ## Machines
+
+> **Superseded on 2026-09-21.** Podman on macOS runs one machine at a
+> time, so the three-machine topology below was never deployable.
+> [Single machine](single-machine.md) records the replacement: one machine
+> named `lclaw`, one Podman network per zone, and a `schema = 2`
+> `lclaw.toml` with a `[machine]` table and `[zones.<role>]` tables. The
+> section is kept as the record of what was designed and why; the
+> workload conventions above and the per-workload apply sequence below
+> are unchanged.
 
 ### The topology file
 

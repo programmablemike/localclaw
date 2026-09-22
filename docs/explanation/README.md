@@ -45,3 +45,5 @@ together. It is read away from the keyboard.
 - [CLI architecture](cli-architecture.md): Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design.
 - [Deployment model](deployment-model.md): Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them.
 - [Secrets management](secrets-management.md): Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own.
+- [Single machine](single-machine.md): Why LocalClaw runs on one Podman machine with one network per zone, not three machines, what Podman on macOS allows, and what changes in lclaw.toml.
+- [Lifecycle commands](lifecycle-commands.md): How lclaw up, down and status create the machine and networks, apply the zones in order, mint the agent's key, report every step and tear it down again.

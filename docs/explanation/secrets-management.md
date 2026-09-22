@@ -9,6 +9,8 @@ related:
   - ../../README.md
   - cli-architecture.md
   - deployment-model.md
+  - single-machine.md
+  - lifecycle-commands.md
   - ../reference/cli.md
   - ../reference/secrets.md
   - ../how-to/manage-secrets.md

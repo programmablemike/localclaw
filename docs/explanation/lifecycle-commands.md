@@ -96,7 +96,7 @@ wiring of the secrets design's resolve, inject and purge use cases; a
 provider environment on the process runner; and the reference and how-to
 pages listed at the end.
 
-It does not deliver Kuma's configuration, WireGuard, or any policy about
+It does not deliver Kuma's configuration or any policy about
 who may talk to whom: that is the network design, which will add steps to
 `up` the way the secrets design did. It does not deliver a `logs` or
 `shell` helper; those are troubleshooting commands with their own page.
@@ -197,7 +197,6 @@ PASS  machine             running
 PASS  network/infra       present
 PASS  network/services    present
 PASS  network/agent       present (internal)
-PASS  infra/wireguard     running
 PASS  infra/kuma-cp       running
 PASS  infra/gateway       running
 PASS  services/litellm-db running
@@ -207,7 +206,7 @@ PASS  services/agentgateway running
 WARN  agent/openclaw      absent
       hint: run `lclaw up agent`
 
-8 passed, 1 warning, 1 failed
+7 passed, 1 warning, 1 failed
 ```
 
 JSON carries the same `status` and `checks` array `doctor` emits, so one
@@ -216,7 +215,7 @@ renderer serves all four commands.
 ## Progress and output
 
 A `doctor` run is quick, so it prints nothing until it is done. `up` is
-not: a first run downloads a machine image, boots, and builds seven
+not: a first run downloads a machine image, boots, and builds six
 images. So `up` and `down` announce each step on **standard error** as it
 begins, one line, `==> machine: starting lclaw`, and print the report on
 standard output when they finish. Standard output stays clean for

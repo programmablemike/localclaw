@@ -144,7 +144,9 @@ exist.
 | `agent`    | `openclaw`     | `ghcr.io/openclaw/openclaw`                     |
 
 Rows marked provisional are placeholders until the network design chooses
-how WireGuard and the gateway run. LiteLLM's stateful mode needs a database,
+how the gateway runs. The `wireguard` row is history: the workload was
+dropped on 2026-09-22 along with the machines it was there to peer; see
+[Single machine](single-machine.md). LiteLLM's stateful mode needs a database,
 so the `services` machine carries Postgres, which the README's table does not
 yet show.
 

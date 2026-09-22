@@ -12,7 +12,7 @@ disk-gib = 60
 volumes = ["/Users/me/workspace:/mnt/workspace"]
 
 [zones.infra]
-workloads = ["wireguard", "kuma-cp", "gateway"]
+workloads = ["kuma-cp", "gateway"]
 bridges = { kuma-cp = ["services", "agent"] }
 
 [zones.services]

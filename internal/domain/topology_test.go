@@ -11,7 +11,7 @@ func validTopology() Topology {
 		Provider: "libkrun",
 		Machine:  MachineSpec{CPUs: 4, MemoryMiB: 8192, DiskGiB: 60},
 		Zones: []ZoneSpec{
-			{Name: "infra", Workloads: []Workload{"wireguard", "kuma-cp", "gateway"}, Bridges: map[Workload][]string{"kuma-cp": {"services", "agent"}}},
+			{Name: "infra", Workloads: []Workload{"kuma-cp", "gateway"}, Bridges: map[Workload][]string{"kuma-cp": {"services", "agent"}}},
 			{Name: "services", Workloads: []Workload{"litellm-db", "litellm", "agentgateway"}, Bridges: map[Workload][]string{"agentgateway": {"agent"}}},
 			{Name: "agent", Internal: true, Workloads: []Workload{"openclaw"}},
 		},
@@ -49,7 +49,7 @@ func TestWorkloadPaths(t *testing.T) {
 }
 
 func TestTopologyWorkloadsInOrder(t *testing.T) {
-	want := []Workload{"wireguard", "kuma-cp", "gateway", "litellm-db", "litellm", "agentgateway", "openclaw"}
+	want := []Workload{"kuma-cp", "gateway", "litellm-db", "litellm", "agentgateway", "openclaw"}
 	if got := validTopology().Workloads(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("Workloads() = %v, want %v", got, want)
 	}
@@ -72,8 +72,8 @@ func TestZoneNetworks(t *testing.T) {
 	if got, want := infra.Networks("kuma-cp"), []string{"lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("Networks(kuma-cp) = %v, want %v", got, want)
 	}
-	if got, want := infra.Networks("wireguard"), []string{"lclaw-infra"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("Networks(wireguard) = %v, want %v", got, want)
+	if got, want := infra.Networks("gateway"), []string{"lclaw-infra"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Networks(gateway) = %v, want %v", got, want)
 	}
 	// Bridged zones come out in role order whatever the file said.
 	infra.Bridges["kuma-cp"] = []string{"agent", "services"}

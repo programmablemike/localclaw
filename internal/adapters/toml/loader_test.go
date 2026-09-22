@@ -34,7 +34,7 @@ func TestLoadValid(t *testing.T) {
 		KeychainPath: "/home/tester/Library/Keychains/lclaw.keychain-db",
 		Machine:      domain.MachineSpec{CPUs: 4, MemoryMiB: 8192, DiskGiB: 60, Volumes: []string{"/Users/me/workspace:/mnt/workspace"}},
 		Zones: []domain.ZoneSpec{
-			{Name: "infra", Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}, Bridges: map[domain.Workload][]string{"kuma-cp": {"services", "agent"}}},
+			{Name: "infra", Workloads: []domain.Workload{"kuma-cp", "gateway"}, Bridges: map[domain.Workload][]string{"kuma-cp": {"services", "agent"}}},
 			{Name: "services", Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}, Secrets: []string{"anthropic-api-key"}, Bridges: map[domain.Workload][]string{"agentgateway": {"agent"}}},
 			{Name: "agent", Internal: true, Workloads: []domain.Workload{"openclaw"}},
 		},
@@ -67,7 +67,7 @@ func TestLoadOrdersRolesThenUnknownNames(t *testing.T) {
 // validation can report the schema with a migration hint.
 func TestLoadSchema1DecodesForValidation(t *testing.T) {
 	src := "schema = 1\nprovider = \"libkrun\"\n" +
-		"[machines.infra]\ncpus = 1\nmemory-mib = 1024\ndisk-gib = 10\nworkloads = [\"wireguard\"]\nsecrets = [\"x\"]\n"
+		"[machines.infra]\ncpus = 1\nmemory-mib = 1024\ndisk-gib = 10\nworkloads = [\"kuma-cp\"]\nsecrets = [\"x\"]\n"
 	got, err := (Loader{}).Load(fstest.MapFS{domain.TopologyFile: {Data: []byte(src)}})
 	if err != nil {
 		t.Fatal(err)

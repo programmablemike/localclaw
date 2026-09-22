@@ -99,11 +99,11 @@ option. Recorded as the shape to reach for if the threat model changes.
 ## What the shape is now
 
 One Podman machine named `lclaw`, three Podman networks named after the
-roles, and the same seven workloads.
+roles, and six workloads.
 
 | Zone       | Network          | Workloads                              | Reachable from                      |
 | ---------- | ---------------- | -------------------------------------- | ----------------------------------- |
-| `infra`    | `lclaw-infra`    | `wireguard`, `kuma-cp`, `gateway`      | the host, through published ports   |
+| `infra`    | `lclaw-infra`    | `kuma-cp`, `gateway`                   | the host, through published ports   |
 | `services` | `lclaw-services` | `litellm-db`, `litellm`, `agentgateway` | `infra`, through `kuma-cp`          |
 | `agent`    | `lclaw-agent`    | `openclaw`                             | `services`, through `agentgateway`; the zone is `--internal` |
 
@@ -167,7 +167,7 @@ disk-gib = 60
 # volumes = ["/Users/me/workspace:/mnt/workspace"]
 
 [zones.infra]
-workloads = ["wireguard", "kuma-cp", "gateway"]
+workloads = ["kuma-cp", "gateway"]
 # Pods in this zone that also join other zones' networks.
 bridges = { kuma-cp = ["services", "agent"] }
 
@@ -250,6 +250,13 @@ above, the [scaffold reference](../reference/scaffold.md) is the fact.
   `kube play` takes it as a flag.
 - **`init --force` does not delete the old `machines/` directory.** The
   writer only writes; the scaffold reference says to remove it by hand.
+- **WireGuard is gone.** Its job was peering between machines, and there
+  is one machine. Kuma's sidecars carry their own mTLS across the zone
+  bridges, so nothing needs a tunnel underneath. It was also the one
+  workload needing `NET_ADMIN` and a kernel module, the first pod every
+  `up` built, and a 51820/udp port on the host. Remote access to the
+  machine, the one thing it could still have done, is a feature for its own
+  design note, not a default workload; decided 2026-09-22.
 
 ## What landed with the code
 

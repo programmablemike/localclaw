@@ -38,7 +38,7 @@ lclaw up
 
 The first run downloads the machine image, creates and boots the machine,
 creates the three zone networks, generates the secrets that do not exist
-yet, builds seven images and plays seven pods. Each step is announced on
+yet, builds six images and plays six pods. Each step is announced on
 standard error as it begins, and the report follows on standard output:
 
 ```text
@@ -57,7 +57,6 @@ PASS  network/infra          created
 PASS  network/services       created
 PASS  network/agent          created (internal)
 PASS  infra/secrets          0 injected
-PASS  infra/wireguard        built and playing
 PASS  infra/kuma-cp          built and playing
 PASS  infra/gateway          built and playing
 PASS  services/secrets       4 injected
@@ -68,7 +67,7 @@ PASS  services/ready         LiteLLM is ready
 PASS  agent/secrets          2 injected
 PASS  agent/openclaw         built and playing
 
-15 passed, 0 warnings, 0 failed
+14 passed, 0 warnings, 0 failed
 ```
 
 If a check fails, the report says which step and why, the zones after it

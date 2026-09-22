@@ -73,8 +73,8 @@ func TestScaffoldTopologyIsValid(t *testing.T) {
 	if findings := domain.Validate(top, exists); len(findings) != 0 {
 		t.Fatalf("embedded topology has findings: %v", findings)
 	}
-	if got := len(top.Workloads()); got != 7 {
-		t.Fatalf("%d workloads, want 7", got)
+	if got := len(top.Workloads()); got != 6 {
+		t.Fatalf("%d workloads, want 6", got)
 	}
 	if got := len(top.Zones); got != 3 {
 		t.Fatalf("%d zones, want 3", got)

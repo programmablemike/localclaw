@@ -3,12 +3,14 @@ title: "Secrets management"
 description: "Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own."
 diataxis: explanation
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [secrets, keychain, podman, kube-play, security, cli, design-decision]
 related:
   - ../../README.md
   - cli-architecture.md
   - deployment-model.md
+  - single-machine.md
+  - lifecycle-commands.md
   - ../reference/cli.md
   - ../reference/secrets.md
   - ../how-to/manage-secrets.md
@@ -26,6 +28,15 @@ followed. The facts it fixed (the catalogue, flags, output shapes, exit
 codes) now live in the [secrets reference](../reference/secrets.md), and
 the reasoning stays here; where the two disagree, the reference page is
 right and "Refinements made during implementation" below says why.
+
+This page speaks of "machines" in the plural because it was written for a
+three-machine topology. [Single machine](single-machine.md) replaced that
+on 2026-09-21 with one machine and one network per zone. Read "the machine
+that uses a secret" as "the zone whose pods consume it": there is one
+Podman secret store, the catalogue's machines column becomes zones, and
+the purge step runs once, at the end of a full `down`. Nothing else here
+changes; the [lifecycle commands](lifecycle-commands.md) page says how the
+resolve, inject and purge steps are wired.
 
 The short version: every secret is an item in a keychain file that belongs to
 LocalClaw. `lclaw up` reads the items it needs, generates any that are

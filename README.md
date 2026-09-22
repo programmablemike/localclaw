@@ -11,7 +11,10 @@ setup and operation easy and reliable. Everything else follows from those two.
 
 > **Status:** pre-alpha. The `lclaw` skeleton, `lclaw doctor`, `lclaw init`
 > and `lclaw secrets` exist; no release has been cut. The rest of this README
-> describes the intended design.
+> describes the intended design. The code that exists today still writes the
+> earlier three-machine topology; the lifecycle commands replace it with the
+> shape below. See [Single machine](docs/explanation/single-machine.md) for
+> why.
 
 ## Architecture
 
@@ -19,31 +22,38 @@ Every workload runs from its upstream container image, customised through a
 Containerfile in a scaffold directory that `lclaw init` writes, and is
 applied as a Kubernetes Pod file with `podman kube play`.
 [Flox](https://flox.dev) provides the toolchain and packages `lclaw`;
-[Podman](https://podman.io) runs the containers. LocalClaw splits the
-system across three Podman machines (VMs) joined by a
-[WireGuard](https://www.wireguard.com) overlay, with [Kuma](https://kuma.io)
-providing the service mesh and access control. Each machine isolates one
-set of responsibilities.
+[Podman](https://podman.io) runs the containers. LocalClaw runs everything
+on **one** Podman machine (a VM), split into three **zones**, each its own
+Podman network, with [Kuma](https://kuma.io) providing the service mesh and
+access control between them. Podman on macOS runs one machine at a time,
+so the boundaries between zones are the machine's network stack, not the
+hypervisor.
 
-| Machine    | Runs                                                                               | Role                                                     |
+| Zone       | Runs                                                                               | Role                                                     |
 | ---------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `infra`    | WireGuard server, Kuma control plane, ingress/egress gateway                       | Overlay network, mesh policy, and the only way in or out |
+| `infra`    | Kuma control plane, ingress/egress gateway, WireGuard                              | Mesh policy, and the only way in or out                  |
 | `services` | [LiteLLM](https://github.com/BerriAI/litellm) proxy (stateful mode) with its [Postgres](https://www.postgresql.org) database, Agent Gateway | Shared model and agent gateway services                  |
 | `agent`    | An OpenClaw agent                                                                  | The untrusted workload                                   |
 
 Secrets live in a dedicated macOS keychain that `lclaw init` creates, and
-are injected into the machine that needs them as Podman secrets; pod files
-reference them by name and never hold a value. See
+are injected into the machine as Podman secrets; pod files reference them by
+name and never hold a value. See
 [Secrets management](docs/explanation/secrets-management.md).
 
 ### Network model
 
-- The `agent` machine can reach only LiteLLM and Agent Gateway by default.
-  Everything else is denied.
-- The agent has no direct route to the internet. Egress goes through the
-  `infra` gateway, and only where a Kuma access control list allows it.
+- Each zone is a Podman network. Containers on different zones cannot reach
+  each other by address or by name unless a pod is deliberately placed on
+  both: the Kuma control plane joins all three, and Agent Gateway joins
+  `agent` and `services`. Nothing else crosses a zone.
+- The `agent` zone is an internal network: the agent has no route to the
+  host or the internet. It can reach only Agent Gateway, and through it only
+  what a Kuma policy allows.
+- The agent pod runs in its own user namespace with all capabilities
+  dropped and nothing mounted from the host. It shares the machine's kernel
+  with the other zones; it does not share a network with them.
 - The LiteLLM and Agent Gateway admin dashboards are published through the
-  Kuma gateway on a localhost port.
+  `infra` gateway on a localhost port.
 
 ```mermaid
 flowchart LR
@@ -51,40 +61,44 @@ flowchart LR
         lclaw["lclaw CLI"]
         browser["Browser (localhost port)"]
     end
-    subgraph infra["infra machine"]
-        wg["WireGuard server"]
-        kuma["Kuma control plane"]
-        gw["Ingress / egress gateway"]
-    end
-    subgraph services["services machine"]
-        litellm["LiteLLM proxy"]
-        agw["Agent Gateway"]
-    end
-    subgraph agent["agent machine"]
-        oc["OpenClaw agent"]
+    subgraph machine["Podman machine: lclaw"]
+        subgraph infra["infra zone"]
+            kuma["Kuma control plane"]
+            gw["Ingress / egress gateway"]
+            wg["WireGuard"]
+        end
+        subgraph services["services zone"]
+            litellm["LiteLLM proxy"]
+            db["Postgres"]
+            agw["Agent Gateway"]
+        end
+        subgraph agent["agent zone (internal)"]
+            oc["OpenClaw agent"]
+        end
     end
     internet(("Internet"))
 
-    lclaw -. "manages lifecycle" .-> infra
-    lclaw -. "manages lifecycle" .-> services
-    lclaw -. "manages lifecycle" .-> agent
+    lclaw -. "up / down / status" .-> machine
     browser -- "admin dashboards" --> gw
     gw --> litellm
     gw --> agw
-    oc -- "allowed by Kuma ACL" --> litellm
-    oc -- "allowed by Kuma ACL" --> agw
+    litellm --> db
+    oc -- "only path out" --> agw
+    agw -- "allowed by Kuma policy" --> litellm
     gw -- "policy-controlled egress" --> internet
 ```
 
 ## The `lclaw` CLI
 
-`lclaw` is a Go CLI that manages the lifecycle of the Podman machines and
-provides helpers for one-off operations and troubleshooting. Build it from
-source with
+`lclaw` is a Go CLI that manages the lifecycle of the Podman machine, its
+zones and their workloads, and provides helpers for one-off operations and
+troubleshooting. Build it from source with
 [Set up a development environment](docs/how-to/set-up-a-development-environment.md);
 the commands that exist are in the
-[command reference](docs/reference/cli.md). The files it writes and the
-podman sequence that applies them are in the
+[command reference](docs/reference/cli.md), and the design of `lclaw up`,
+`down` and `status` is in
+[Lifecycle commands](docs/explanation/lifecycle-commands.md). The files it
+writes and the podman sequence that applies them are in the
 [scaffold reference](docs/reference/scaffold.md) and
 [Apply a deployment by hand](docs/how-to/apply-a-deployment-by-hand.md).
 

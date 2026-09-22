@@ -3,7 +3,7 @@ title: "lclaw command reference"
 description: "Commands, global flags, environment variables, exit codes and the JSON output shape of the lclaw command-line tool."
 diataxis: reference
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [cli, lclaw, doctor, init, secrets, exit-codes, json]
 related:
   - ../explanation/cli-architecture.md
@@ -14,8 +14,15 @@ related:
 
 # lclaw command reference
 
-`lclaw` manages LocalClaw's Podman machines. This page describes the
+`lclaw` manages LocalClaw's Podman machine. This page describes the
 commands that exist today.
+
+> **Changing.** `doctor` today checks for three machines, `lclaw-infra`,
+> `lclaw-services` and `lclaw-agent`, because that is what the current
+> scaffold describes. [Single machine](../explanation/single-machine.md)
+> replaces them with one machine named `lclaw` and one network per zone;
+> the `doctor` checks and this page change when the
+> [lifecycle commands](../explanation/lifecycle-commands.md) land.
 
 ## Synopsis
 

@@ -8,7 +8,7 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and the `doctor`
 
 ## Start here
 
-- [LocalClaw README](../README.md): What LocalClaw is, the three-machine architecture and network model, the lclaw CLI, and where to find docs and contributor rules.
+- [LocalClaw README](../README.md): What LocalClaw is, the single-machine architecture with one network per zone, the lclaw CLI, and where to find docs and contributor rules.
 - [Documentation](README.md): Entry point to the localclaw docs: how the Diátaxis layout works and how to find or add the right kind of page.
 - [Contributor rules](../AGENTS.md): Worktree, pull request, commit message, documentation and release requirements for agents and humans.
 
@@ -40,6 +40,8 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and the `doctor`
 - [CLI architecture](explanation/cli-architecture.md): Why lclaw is layered as presentation, domain and data, which dependencies it accepts, and how the doctor command proves the design.
 - [Deployment model](explanation/deployment-model.md): Why each workload is a Containerfile over its upstream image plus a Pod file, how lclaw init scaffolds them, and the podman sequence that applies them.
 - [Secrets management](explanation/secrets-management.md): Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own.
+- [Single machine](explanation/single-machine.md): Why LocalClaw runs on one Podman machine with one network per zone, not three machines, what Podman on macOS allows, and what changes in lclaw.toml.
+- [Lifecycle commands](explanation/lifecycle-commands.md): How lclaw up, down and status create the machine and networks, apply the zones in order, mint the agent's key, report every step and tear it down again.
 
 ## Optional
 

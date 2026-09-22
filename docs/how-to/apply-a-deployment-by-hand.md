@@ -3,7 +3,7 @@ title: "Apply a deployment by hand"
 description: "Create, start and load one LocalClaw machine from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough."
 diataxis: how-to
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [podman, machine, kube-play, scaffold, troubleshooting]
 related:
   - ../reference/scaffold.md
@@ -16,6 +16,13 @@ related:
 When you finish, one LocalClaw machine exists, is running, and every
 workload listed for it in `lclaw.toml` is built and playing, all done with
 `podman` commands you can rerun one at a time.
+
+> **Changing.** These steps follow the current `schema = 1` scaffold, one
+> machine per role. [Single machine](../explanation/single-machine.md)
+> replaces that with a single machine named `lclaw` and one network per
+> zone; the guide is rewritten for that shape, with the network and bridge
+> steps, when the [lifecycle commands](../explanation/lifecycle-commands.md)
+> land. Until then the steps here still work for one machine at a time.
 
 ## Prerequisites
 

@@ -162,9 +162,14 @@ echo "==> secret wire contract"
 # as a file, and that a secret volume is a named volume carrying the
 # secret's name, which is what `lclaw down` removes.
 wire=lclaw-wire-test
+# Remove any leftover first rather than passing --replace: on Podman 4.9,
+# which is what the Ubuntu runner ships, --replace deletes unconditionally
+# and fails with "deleting secret : : no secret data with ID" when the
+# secret is not already there.
+podman secret rm "$wire" >/dev/null 2>&1 || true
 printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"%s"},"type":"Opaque","data":{"value":"%s"}}' \
   "$wire" "$(printf 'wire-contract-ok' | base64)" |
-  podman secret create --replace --label app.kubernetes.io/part-of=localclaw "$wire" -
+  podman secret create --label app.kubernetes.io/part-of=localclaw "$wire" -
 
 cat > "$tmp/wire.yaml" <<YAML
 apiVersion: v1

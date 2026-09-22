@@ -29,6 +29,10 @@ spec:
     - name: litellm
       image: localhost/lclaw/litellm:latest
       imagePullPolicy: Never
+      resources:
+        limits:
+          cpu: "2"
+          memory: 2Gi
       args:
         - --config
         - /etc/litellm/config.yaml

@@ -2,7 +2,7 @@
 title: "Lifecycle commands"
 description: "How lclaw up, down and status create the machine and networks, apply the zones in order, mint the agent's key, report every step and tear it down again."
 diataxis: explanation
-status: draft
+status: stable
 last_reviewed: 2026-09-22
 tags: [cli, lclaw, up, down, status, podman, kube-play, litellm, design-decision]
 related:
@@ -404,17 +404,56 @@ which is the one place it must never be.
 stopped agent from a crashed one, which is the question a person asking
 for status has.
 
-## What lands with the code
+## Refinements made during implementation
 
-- `docs/reference/cli.md`: `up`, `down`, `status`, their arguments and
-  flags, exit codes, and the JSON shape.
-- `docs/how-to/bring-the-system-up-and-down.md`: the commands in order
-  for a first run, an edit, and a full teardown, with expected output.
-- `docs/how-to/apply-a-deployment-by-hand.md`: updated for one machine,
-  the networks and the bridges.
-- `docs/tutorials/getting-started.md`: the first tutorial, from `init`
-  through `up` to a working agent, once `up` exists to be tutored.
+The code landed on 2026-09-22 and matches this page with these changes,
+recorded so the page stays accurate. Where a change contradicts something
+above, the [command reference](../reference/cli.md) is the fact.
+
+- **Podman refuses to start a running machine**, so `up` reads the machine
+  list first and calls `machine start` only when the machine is stopped;
+  `start` carries `--no-info` to keep Podman's rootless advice out of the
+  log. Stopping a stopped machine is a no-op to Podman, so `down` does not
+  need the same guard.
+- **`--destroy` does not revoke the key at LiteLLM.** By the time the
+  machine is removed, LiteLLM's database has gone with it, so there is
+  nothing to revoke; the keychain item is deleted and the next `up` mints
+  a fresh one. `KeyMinter.Revoke` exists and is tested, for `secrets
+  delete` to use later.
+- **The readiness wait runs only when a minter is wired.** With
+  `UnavailableMinter`, as in tests without LiteLLM, `up` skips the
+  `services/ready` check rather than failing on it.
+- **`ListPods` drops the pod's infra container**, which Podman names
+  `<id>-infra`, so `status` judges only the workload's own containers.
+- **`down` of a subset reports the kept store and machine as warnings**,
+  named `secrets` and `machine`, so the report says why they stayed rather
+  than omitting them.
+- **The minter's scripts use only `urllib`**, so the LiteLLM image needs
+  nothing beyond CPython. A missing container maps to
+  `ErrMinterUnavailable`, and the readiness error keeps only the last
+  stderr line, which is the exception text.
+- **No tutorial yet.** A tutorial must be guaranteed to work on a clean
+  checkout, and a working agent still needs the network design to route
+  it to LiteLLM.
+
+### The assumptions this page listed
+
+Not yet exercised on a real machine; see the pull request for the state
+of the by-hand run. `--userns auto` with a `persistentVolumeClaim`,
+`network rm` straight after `kube down`, `python3` with `urllib` in the
+LiteLLM image, aardvark DNS across an internal network's bridges, and the
+two-minute readiness budget are each pinned by the Linux CI scaffold check
+where the runner can (`--internal`, `--network` and `kube down` followed
+by `network rm`), and remain listed here until the macOS run confirms the
+rest.
+
+## What landed with the code
+
+- [`docs/reference/cli.md`](../reference/cli.md): `up`, `down`, `status`,
+  their arguments and flags, exit codes, and the JSON shape.
+- [`docs/how-to/bring-the-system-up-and-down.md`](../how-to/bring-the-system-up-and-down.md)
+  and [`docs/how-to/apply-a-deployment-by-hand.md`](../how-to/apply-a-deployment-by-hand.md).
 - `CHANGELOG.md`: the three commands under Unreleased.
-- The `doctor` hint "run `lclaw up` once it is available" loses its last
+- The `doctor` hint "run `lclaw up` once it is available" lost its last
   four words.
-- This page becomes `stable` when the implementation matches it.
+- This page is `stable`: the implementation matches it.

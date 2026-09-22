@@ -41,6 +41,7 @@ func (s *System) Run(ctx context.Context, c Command) (Result, error) {
 	cmd := osexec.CommandContext(ctx, c.Name, c.Args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdin = c.Stdin
+	cmd.Env = environ(c.Env)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.WaitDelay = delay
@@ -66,6 +67,7 @@ func (s *System) Interactive(ctx context.Context, c Command) error {
 
 	cmd := osexec.CommandContext(ctx, c.Name, c.Args...)
 	cmd.Stdin = os.Stdin
+	cmd.Env = environ(c.Env)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.WaitDelay = delay
@@ -100,4 +102,13 @@ func tail(s string) string {
 		s = s[len(s)-maxStderrTail:]
 	}
 	return s
+}
+
+// environ returns nil, meaning inherit, when extra is empty, and the
+// process environment plus extra otherwise.
+func environ(extra []string) []string {
+	if len(extra) == 0 {
+		return nil
+	}
+	return append(os.Environ(), extra...)
 }

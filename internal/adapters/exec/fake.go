@@ -15,6 +15,7 @@ type Call struct {
 	Name        string
 	Args        []string
 	Stdin       string
+	Env         []string
 	Sensitive   bool
 	Interactive bool
 }
@@ -60,7 +61,7 @@ func (f *Fake) Run(ctx context.Context, c Command) (Result, error) {
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.Calls = append(f.Calls, Call{Name: c.Name, Args: append([]string(nil), c.Args...), Stdin: stdin, Sensitive: c.Sensitive})
+	f.Calls = append(f.Calls, Call{Name: c.Name, Args: append([]string(nil), c.Args...), Stdin: stdin, Env: append([]string(nil), c.Env...), Sensitive: c.Sensitive})
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
@@ -75,7 +76,7 @@ func (f *Fake) Run(ctx context.Context, c Command) (Result, error) {
 func (f *Fake) Interactive(ctx context.Context, c Command) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.Calls = append(f.Calls, Call{Name: c.Name, Args: append([]string(nil), c.Args...), Interactive: true})
+	f.Calls = append(f.Calls, Call{Name: c.Name, Args: append([]string(nil), c.Args...), Env: append([]string(nil), c.Env...), Interactive: true})
 	if err := ctx.Err(); err != nil {
 		return err
 	}

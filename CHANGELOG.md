@@ -8,6 +8,39 @@ versions follow [Semantic Versioning](https://semver.org).
 
 ### Added
 
+- `lclaw up`, `lclaw down` and `lclaw status`. `up` checks the declared
+  secrets, creates and starts the one Podman machine, creates one network
+  per zone (the agent's internal), then per zone resolves and injects its
+  secrets and builds and plays each workload, waiting for LiteLLM before
+  minting the agent's virtual key inside the LiteLLM container. `down`
+  tears the zones down in reverse, removes their networks, and purges the
+  secret store and stops the machine once nothing remains; `--destroy`
+  removes the machine. `status` reports the machine, the networks and every
+  pod. All three report one check per step, as text or JSON, with progress
+  on standard error.
+- The `adapters/litellm` package, which mints and revokes the agent's key
+  through `podman exec` so the master key never leaves the machine.
+- Every default Pod file carries CPU and memory limits, and the `openclaw`
+  Pod file drops all capabilities and forbids privilege escalation.
+
+### Changed
+
+- **One Podman machine instead of three.** Podman on macOS runs one
+  machine at a time, so LocalClaw now runs every workload on the machine
+  `lclaw`, split into three zones that are each a Podman network. See
+  `docs/explanation/single-machine.md`.
+- `lclaw.toml` is `schema = 2`: a `[machine]` table and `[zones.<role>]`
+  tables with `internal` and `bridges`. A `schema = 1` file is reported
+  with a hint to run `lclaw init --force`. `init` writes one
+  `machine/playbook.yaml` instead of three.
+- `lclaw doctor` reports one `machine` check and, when it is running, one
+  `network/<zone>` check each, in place of the three machine checks.
+- `lclaw secrets` speaks of zones rather than machines and reports one
+  store rather than one per machine; the JSON `machines` and `stores`
+  fields became `zones` and `store`.
+- The exec runner takes an `Env` list, used to pass
+  `CONTAINERS_MACHINE_PROVIDER` to every `podman machine` command.
+
 - `lclaw doctor` reports whether Flox and Podman are installed at the
   required versions and whether the three LocalClaw machines exist, as text
   or JSON, with every problem reported in one run.
@@ -43,8 +76,6 @@ versions follow [Semantic Versioning](https://semver.org).
 - A Linux CI job proves the secret wire contract: the exact body `lclaw`
   sends is readable inside a pod both as an environment variable and as a
   file, and a secret volume is a named volume that can be removed.
-
-### Changed
 
 - `lclaw doctor` requires Podman 5.8.0 or newer, because
   `podman machine init --playbook` arrived in 5.8.

@@ -50,31 +50,3 @@ func EvaluateTool(req Requirement, found Version, err error) Check {
 	}
 	return c
 }
-
-// EvaluateMachines emits one Check per role, in role order: Pass when the
-// machine exists (summary says whether it is running), Warn when it does not.
-func EvaluateMachines(roles []Role, found []Machine) []Check {
-	byName := make(map[string]Machine, len(found))
-	for _, m := range found {
-		byName[m.Name] = m
-	}
-	checks := make([]Check, 0, len(roles))
-	for _, r := range roles {
-		name := r.MachineName()
-		c := Check{Name: name}
-		if m, ok := byName[name]; ok {
-			c.Status = Pass
-			if m.Running {
-				c.Summary = "running"
-			} else {
-				c.Summary = "stopped"
-			}
-		} else {
-			c.Status = Warn
-			c.Summary = "not created"
-			c.Hint = "run `lclaw up` once it is available"
-		}
-		checks = append(checks, c)
-	}
-	return checks
-}

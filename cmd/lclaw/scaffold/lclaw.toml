@@ -1,38 +1,44 @@
-# LocalClaw topology. The three roles are fixed; edit sizes and workload
-# lists. Workloads are applied in the order listed and torn down in reverse.
-# cpus, memory-mib and disk-gib map onto `podman machine init --cpus`,
-# `--memory` and `--disk-size`. The schema is documented in
-# docs/reference/scaffold.md of the LocalClaw repository.
-schema = 1
+# LocalClaw topology. One Podman machine, one network per zone. The three
+# zones are fixed; edit the machine size and the workload lists. Workloads
+# are applied in the order listed and torn down in reverse. The schema is
+# documented in docs/reference/scaffold.md of the LocalClaw repository.
+schema = 2
 provider = "libkrun"
 
-# The keychain holding the secrets lclaw injects into the machines.
+# The keychain holding the secrets lclaw injects into the machine.
 # `lclaw init` creates it; `lclaw secrets` manages its items. Point this at
 # login.keychain-db to use the login keychain instead.
 [keychain]
 path = "~/Library/Keychains/lclaw.keychain-db"
 
-[machines.infra]
-cpus = 1
-memory-mib = 1024
-disk-gib = 10
-workloads = ["wireguard", "kuma-cp", "gateway"]
+# The machine. cpus, memory-mib and disk-gib map onto `podman machine init
+# --cpus`, `--memory` and `--disk-size`.
+[machine]
+cpus = 4
+memory-mib = 8192
+disk-gib = 60
+# Host directories to mount into the machine, as "host:guest" pairs. Empty by
+# default: nothing on the host is visible to any container unless listed.
+# volumes = ["/Users/me/workspace:/mnt/workspace"]
 
-[machines.services]
-cpus = 2
-memory-mib = 4096
-disk-gib = 30
+# Each zone is a Podman network named lclaw-<zone>. A pod joins its own
+# zone's network, plus the networks of the zones its `bridges` entry names.
+[zones.infra]
+workloads = ["wireguard", "kuma-cp", "gateway"]
+# The control plane must be reachable from every sidecar.
+bridges = { kuma-cp = ["services", "agent"] }
+
+[zones.services]
 workloads = ["litellm-db", "litellm", "agentgateway"]
-# Secrets this machine receives, by keychain item name. The built-in
+# Agent Gateway is the agent zone's only door out.
+bridges = { agentgateway = ["agent"] }
+# Secrets this zone's pods consume, by keychain item name. The built-in
 # entries are always available; list only the keys you supply yourself.
 # Set each one with `lclaw secrets set <name>`.
 secrets = ["anthropic-api-key"]
 
-[machines.agent]
-cpus = 2
-memory-mib = 4096
-disk-gib = 30
+[zones.agent]
+# An internal network has no route to the host, the internet or any other
+# zone. The agent reaches only what bridges into this zone.
+internal = true
 workloads = ["openclaw"]
-# Host directories to mount into the machine, as "host:guest" pairs. Empty by
-# default: nothing on the host is visible to the agent unless listed here.
-# volumes = ["/Users/me/workspace:/mnt/workspace"]

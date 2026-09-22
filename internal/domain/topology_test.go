@@ -7,12 +7,13 @@ import (
 
 func validTopology() Topology {
 	return Topology{
-		Schema:   1,
+		Schema:   2,
 		Provider: "libkrun",
-		Machines: []MachineSpec{
-			{Name: "infra", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10, Workloads: []Workload{"wireguard", "kuma-cp", "gateway"}},
-			{Name: "services", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []Workload{"litellm-db", "litellm", "agentgateway"}},
-			{Name: "agent", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []Workload{"openclaw"}},
+		Machine:  MachineSpec{CPUs: 4, MemoryMiB: 8192, DiskGiB: 60},
+		Zones: []ZoneSpec{
+			{Name: "infra", Workloads: []Workload{"wireguard", "kuma-cp", "gateway"}, Bridges: map[Workload][]string{"kuma-cp": {"services", "agent"}}},
+			{Name: "services", Workloads: []Workload{"litellm-db", "litellm", "agentgateway"}, Bridges: map[Workload][]string{"agentgateway": {"agent"}}},
+			{Name: "agent", Internal: true, Workloads: []Workload{"openclaw"}},
 		},
 	}
 }
@@ -35,6 +36,12 @@ func TestWorkloadPaths(t *testing.T) {
 	if got := w.Dir(); got != "workloads/openclaw" {
 		t.Errorf("Dir() = %q", got)
 	}
+	if got := w.PodFile(); got != "workloads/openclaw/pod.yaml" {
+		t.Errorf("PodFile() = %q", got)
+	}
+	if got := w.ImageTag(); got != "localhost/lclaw/openclaw:latest" {
+		t.Errorf("ImageTag() = %q", got)
+	}
 	want := []string{"workloads/openclaw/Containerfile", "workloads/openclaw/pod.yaml", "workloads/openclaw/.containerignore"}
 	if got := w.RequiredFiles(); !reflect.DeepEqual(got, want) {
 		t.Errorf("RequiredFiles() = %v, want %v", got, want)
@@ -48,9 +55,36 @@ func TestTopologyWorkloadsInOrder(t *testing.T) {
 	}
 }
 
+func TestTopologyZone(t *testing.T) {
+	top := validTopology()
+	z, ok := top.Zone(Agent)
+	if !ok || !z.Internal || z.Name != "agent" {
+		t.Fatalf("Zone(Agent) = %+v, %v", z, ok)
+	}
+	if _, ok := (Topology{}).Zone(Agent); ok {
+		t.Fatal("an empty topology has no zones")
+	}
+}
+
+func TestZoneNetworks(t *testing.T) {
+	top := validTopology()
+	infra, _ := top.Zone(Infra)
+	if got, want := infra.Networks("kuma-cp"), []string{"lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Networks(kuma-cp) = %v, want %v", got, want)
+	}
+	if got, want := infra.Networks("wireguard"), []string{"lclaw-infra"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Networks(wireguard) = %v, want %v", got, want)
+	}
+	// Bridged zones come out in role order whatever the file said.
+	infra.Bridges["kuma-cp"] = []string{"agent", "services"}
+	if got, want := infra.Networks("kuma-cp"), []string{"lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("Networks(kuma-cp) reordered = %v, want %v", got, want)
+	}
+}
+
 func TestFindingString(t *testing.T) {
-	f := Finding{Where: "machines.infra.cpus", Message: "must be positive, got 0"}
-	if got := f.String(); got != "machines.infra.cpus: must be positive, got 0" {
+	f := Finding{Where: "machine.cpus", Message: "must be positive, got 0"}
+	if got := f.String(); got != "machine.cpus: must be positive, got 0" {
 		t.Fatalf("String() = %q", got)
 	}
 }
@@ -65,11 +99,14 @@ func TestValidateAcceptsTheDefault(t *testing.T) {
 func TestValidateEmptyTopology(t *testing.T) {
 	got := Validate(Topology{}, nothing)
 	want := []Finding{
-		{"schema", "must be 1, got 0"},
+		{"schema", "must be 2, got 0"},
 		{"provider", `must be one of libkrun, applehv, got ""`},
-		{"machines", "machines.infra is missing"},
-		{"machines", "machines.services is missing"},
-		{"machines", "machines.agent is missing"},
+		{"machine.cpus", "must be positive, got 0"},
+		{"machine.memory-mib", "must be positive, got 0"},
+		{"machine.disk-gib", "must be positive, got 0"},
+		{"zones", "zones.infra is missing"},
+		{"zones", "zones.services is missing"},
+		{"zones", "zones.agent is missing"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, want)
@@ -84,9 +121,14 @@ func TestValidateRules(t *testing.T) {
 		want   []Finding
 	}{
 		{
+			name:   "schema 1 gets a migration hint",
+			mutate: func(t *Topology) { t.Schema = 1 },
+			want:   []Finding{{"schema", "schema 1 described three machines and is no longer supported; run `lclaw init --force` to write the schema 2 file"}},
+		},
+		{
 			name:   "schema",
-			mutate: func(t *Topology) { t.Schema = 2 },
-			want:   []Finding{{"schema", "must be 1, got 2"}},
+			mutate: func(t *Topology) { t.Schema = 3 },
+			want:   []Finding{{"schema", "must be 2, got 3"}},
 		},
 		{
 			name:   "provider",
@@ -100,62 +142,62 @@ func TestValidateRules(t *testing.T) {
 		},
 		{
 			name:   "zero cpus",
-			mutate: func(t *Topology) { t.Machines[0].CPUs = 0 },
-			want:   []Finding{{"machines.infra.cpus", "must be positive, got 0"}},
+			mutate: func(t *Topology) { t.Machine.CPUs = 0 },
+			want:   []Finding{{"machine.cpus", "must be positive, got 0"}},
 		},
 		{
 			name:   "negative memory",
-			mutate: func(t *Topology) { t.Machines[1].MemoryMiB = -1 },
-			want:   []Finding{{"machines.services.memory-mib", "must be positive, got -1"}},
+			mutate: func(t *Topology) { t.Machine.MemoryMiB = -1 },
+			want:   []Finding{{"machine.memory-mib", "must be positive, got -1"}},
 		},
 		{
 			name:   "zero disk",
-			mutate: func(t *Topology) { t.Machines[2].DiskGiB = 0 },
-			want:   []Finding{{"machines.agent.disk-gib", "must be positive, got 0"}},
+			mutate: func(t *Topology) { t.Machine.DiskGiB = 0 },
+			want:   []Finding{{"machine.disk-gib", "must be positive, got 0"}},
 		},
 		{
 			name:   "missing role",
-			mutate: func(t *Topology) { t.Machines = t.Machines[:2] },
-			want:   []Finding{{"machines", "machines.agent is missing"}},
+			mutate: func(t *Topology) { t.Zones = t.Zones[:2] },
+			want:   []Finding{{"zones", "zones.agent is missing"}},
 		},
 		{
-			name: "unknown machine",
+			name: "unknown zone",
 			mutate: func(t *Topology) {
-				t.Machines = append(t.Machines, MachineSpec{Name: "extra", CPUs: 1, MemoryMiB: 1, DiskGiB: 1})
+				t.Zones = append(t.Zones, ZoneSpec{Name: "extra"})
 			},
-			want: []Finding{{"machines.extra", "unknown machine; the roles are infra, services, agent"}},
+			want: []Finding{{"zones.extra", "unknown zone; the zones are infra, services, agent"}},
 		},
 		{
 			name: "duplicate role",
 			mutate: func(t *Topology) {
-				t.Machines = append(t.Machines, MachineSpec{Name: "agent", CPUs: 1, MemoryMiB: 1, DiskGiB: 1})
+				t.Zones = append(t.Zones, ZoneSpec{Name: "agent", Internal: true})
 			},
-			want: []Finding{{"machines", "machines.agent appears 2 times"}},
+			want: []Finding{{"zones", "zones.agent appears 2 times"}},
 		},
 		{
-			name:   "workload under two machines",
-			mutate: func(t *Topology) { t.Machines[2].Workloads = append(t.Machines[2].Workloads, "litellm") },
-			want:   []Finding{{"machines.agent.workloads", `"litellm" is also listed under machines.services`}},
+			name:   "workload under two zones",
+			mutate: func(t *Topology) { t.Zones[2].Workloads = append(t.Zones[2].Workloads, "litellm") },
+			want:   []Finding{{"zones.agent.workloads", `"litellm" is also listed under zones.services`}},
 		},
 		{
 			name:   "workload listed twice",
-			mutate: func(t *Topology) { t.Machines[2].Workloads = []Workload{"openclaw", "openclaw"} },
-			want:   []Finding{{"machines.agent.workloads", `"openclaw" is listed twice`}},
+			mutate: func(t *Topology) { t.Zones[2].Workloads = []Workload{"openclaw", "openclaw"} },
+			want:   []Finding{{"zones.agent.workloads", `"openclaw" is listed twice`}},
 		},
 		{
 			name:   "bad workload name",
-			mutate: func(t *Topology) { t.Machines[2].Workloads = []Workload{"Open Claw"} },
-			want:   []Finding{{"machines.agent.workloads", `"Open Claw" is not a valid workload name; use lowercase letters, digits and hyphens`}},
+			mutate: func(t *Topology) { t.Zones[2].Workloads = []Workload{"Open Claw"} },
+			want:   []Finding{{"zones.agent.workloads", `"Open Claw" is not a valid workload name; use lowercase letters, digits and hyphens`}},
 		},
 		{
 			name:   "empty workload name",
-			mutate: func(t *Topology) { t.Machines[2].Workloads = []Workload{""} },
-			want:   []Finding{{"machines.agent.workloads", `"" is not a valid workload name; use lowercase letters, digits and hyphens`}},
+			mutate: func(t *Topology) { t.Zones[2].Workloads = []Workload{""} },
+			want:   []Finding{{"zones.agent.workloads", `"" is not a valid workload name; use lowercase letters, digits and hyphens`}},
 		},
 		{
 			name:   "leading hyphen",
-			mutate: func(t *Topology) { t.Machines[2].Workloads = []Workload{"-bad"} },
-			want:   []Finding{{"machines.agent.workloads", `"-bad" is not a valid workload name; use lowercase letters, digits and hyphens`}},
+			mutate: func(t *Topology) { t.Zones[2].Workloads = []Workload{"-bad"} },
+			want:   []Finding{{"zones.agent.workloads", `"-bad" is not a valid workload name; use lowercase letters, digits and hyphens`}},
 		},
 		{
 			name:   "missing files",
@@ -166,18 +208,51 @@ func TestValidateRules(t *testing.T) {
 					return all(p) && p != "workloads/openclaw/pod.yaml" && p != "workloads/openclaw/.containerignore"
 				}
 			},
-			want: []Finding{{"machines.agent.workloads", "workloads/openclaw is missing pod.yaml, .containerignore"}},
+			want: []Finding{{"zones.agent.workloads", "workloads/openclaw is missing pod.yaml, .containerignore"}},
 		},
 		{
 			name: "volumes",
 			mutate: func(t *Topology) {
-				t.Machines[2].Volumes = []string{"/Users/me/ws:/mnt/ws", "relative:/mnt", "/a:b", "/nocolon"}
+				t.Machine.Volumes = []string{"/Users/me/ws:/mnt/ws", "relative:/mnt", "/a:b", "/nocolon"}
 			},
 			want: []Finding{
-				{"machines.agent.volumes[1]", `"relative:/mnt" must be two absolute paths joined by a colon`},
-				{"machines.agent.volumes[2]", `"/a:b" must be two absolute paths joined by a colon`},
-				{"machines.agent.volumes[3]", `"/nocolon" must be two absolute paths joined by a colon`},
+				{"machine.volumes[1]", `"relative:/mnt" must be two absolute paths joined by a colon`},
+				{"machine.volumes[2]", `"/a:b" must be two absolute paths joined by a colon`},
+				{"machine.volumes[3]", `"/nocolon" must be two absolute paths joined by a colon`},
 			},
+		},
+		{
+			name:   "bridge names a workload of another zone",
+			mutate: func(t *Topology) { t.Zones[0].Bridges["litellm"] = []string{"agent"} },
+			want:   []Finding{{"zones.infra.bridges.litellm", `"litellm" is not a workload of this zone`}},
+		},
+		{
+			name:   "bridge to an unknown zone",
+			mutate: func(t *Topology) { t.Zones[1].Bridges["agentgateway"] = []string{"agent", "laptop"} },
+			want:   []Finding{{"zones.services.bridges.agentgateway", `unknown zone "laptop"; the zones are infra, services, agent`}},
+		},
+		{
+			name:   "bridge to its own zone",
+			mutate: func(t *Topology) { t.Zones[1].Bridges["agentgateway"] = []string{"agent", "services"} },
+			want:   []Finding{{"zones.services.bridges.agentgateway", "a workload already joins its own zone"}},
+		},
+		{
+			name:   "bridge target listed twice",
+			mutate: func(t *Topology) { t.Zones[1].Bridges["agentgateway"] = []string{"agent", "agent"} },
+			want:   []Finding{{"zones.services.bridges.agentgateway", `"agent" is listed twice`}},
+		},
+		{
+			name:   "internal zone bridges out",
+			mutate: func(t *Topology) { t.Zones[2].Bridges = map[Workload][]string{"openclaw": {"services"}} },
+			want:   []Finding{{"zones.agent.bridges.openclaw", "an internal zone bridges nothing out"}},
+		},
+		{
+			name: "internal zone nobody bridges into",
+			mutate: func(t *Topology) {
+				delete(t.Zones[0].Bridges, "kuma-cp")
+				delete(t.Zones[1].Bridges, "agentgateway")
+			},
+			want: []Finding{{"zones.agent.internal", "an internal zone must be the target of at least one bridge, or nothing can reach it"}},
 		},
 	}
 	for _, tt := range tests {
@@ -199,13 +274,13 @@ func TestValidateRules(t *testing.T) {
 func TestValidateReportsEverythingInFileOrder(t *testing.T) {
 	top := validTopology()
 	top.Provider = "qemu"
-	top.Machines[0].CPUs = 0
-	top.Machines[2].Workloads = []Workload{"litellm", "openclaw"}
+	top.Machine.CPUs = 0
+	top.Zones[2].Workloads = []Workload{"litellm", "openclaw"}
 	got := Validate(top, present(validTopology()))
 	want := []Finding{
 		{"provider", `must be one of libkrun, applehv, got "qemu"`},
-		{"machines.infra.cpus", "must be positive, got 0"},
-		{"machines.agent.workloads", `"litellm" is also listed under machines.services`},
+		{"machine.cpus", "must be positive, got 0"},
+		{"zones.agent.workloads", `"litellm" is also listed under zones.services`},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Validate() =\n%+v\nwant\n%+v", got, want)
@@ -213,7 +288,7 @@ func TestValidateReportsEverythingInFileOrder(t *testing.T) {
 }
 
 func TestTopologyDeclaredSecrets(t *testing.T) {
-	topo := Topology{Machines: []MachineSpec{
+	topo := Topology{Zones: []ZoneSpec{
 		{Name: "services", Secrets: []string{"a", "b"}},
 		{Name: "agent"},
 	}}
@@ -235,32 +310,47 @@ func TestParseRole(t *testing.T) {
 	}
 }
 
+func TestSelectRoles(t *testing.T) {
+	if got, err := SelectRoles(nil); err != nil || !reflect.DeepEqual(got, Roles()) {
+		t.Fatalf("SelectRoles(nil) = %v, %v", got, err)
+	}
+	if got, err := SelectRoles([]string{"agent", "infra"}); err != nil || !reflect.DeepEqual(got, []Role{Infra, Agent}) {
+		t.Fatalf("SelectRoles(agent, infra) = %v, %v; want infra then agent", got, err)
+	}
+	if _, err := SelectRoles([]string{"laptop"}); err == nil || err.Error() != "unknown zone laptop; the zones are infra, services, agent" {
+		t.Fatalf("SelectRoles(laptop) err = %v", err)
+	}
+	if _, err := SelectRoles([]string{"agent", "agent"}); err == nil || err.Error() != "zone agent is named twice" {
+		t.Fatalf("SelectRoles(agent, agent) err = %v", err)
+	}
+}
+
 func TestValidateReportsSecretFindings(t *testing.T) {
 	top := validTopology()
-	top.Machines[1].Secrets = []string{"Bad_Name"}
+	top.Zones[1].Secrets = []string{"Bad_Name"}
 	findings := Validate(top, present(top))
 	var got []string
 	for _, f := range findings {
 		got = append(got, f.String())
 	}
-	want := `machines.services.secrets: "Bad_Name" is not a valid secret name; use a lowercase DNS label of at most 63 characters`
+	want := `zones.services.secrets: "Bad_Name" is not a valid secret name; use a lowercase DNS label of at most 63 characters`
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("findings = %v, want exactly %q", got, want)
 	}
 }
 
-// An unknown machine is reported once, by the machine loop, even when it
-// also declares secrets.
-func TestValidateReportsAnUnknownMachineOnce(t *testing.T) {
+// An unknown zone is reported once, by the zone loop, even when it also
+// declares secrets.
+func TestValidateReportsAnUnknownZoneOnce(t *testing.T) {
 	top := validTopology()
-	top.Machines = append(top.Machines, MachineSpec{Name: "laptop", CPUs: 1, MemoryMiB: 1, DiskGiB: 1, Secrets: []string{"whatever"}})
+	top.Zones = append(top.Zones, ZoneSpec{Name: "laptop", Secrets: []string{"whatever"}})
 	var unknown int
 	for _, f := range Validate(top, present(top)) {
-		if f.Where == "machines.laptop" {
+		if f.Where == "zones.laptop" {
 			unknown++
 		}
 	}
 	if unknown != 1 {
-		t.Fatalf("machines.laptop reported %d times, want 1", unknown)
+		t.Fatalf("zones.laptop reported %d times, want 1", unknown)
 	}
 }

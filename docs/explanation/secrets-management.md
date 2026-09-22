@@ -35,8 +35,9 @@ on 2026-09-21 with one machine and one network per zone. Read "the machine
 that uses a secret" as "the zone whose pods consume it": there is one
 Podman secret store, the catalogue's machines column becomes zones, and
 the purge step runs once, at the end of a full `down`. Nothing else here
-changes; the [lifecycle commands](lifecycle-commands.md) page says how the
-resolve, inject and purge steps are wired.
+changed; the [lifecycle commands](lifecycle-commands.md) page says how the
+resolve, inject and purge steps are wired, and the
+[secrets reference](../reference/secrets.md) is the fact.
 
 The short version: every secret is an item in a keychain file that belongs to
 LocalClaw. `lclaw up` reads the items it needs, generates any that are

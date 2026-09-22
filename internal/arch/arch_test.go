@@ -29,6 +29,7 @@ var allowed = map[string][]string{
 	"internal/adapters/exec":     {},
 	"internal/adapters/flox":     {"internal/app", "internal/domain", "internal/adapters/exec"},
 	"internal/adapters/keychain": {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/litellm":  {"internal/app", "internal/domain", "internal/adapters/exec"},
 	"internal/adapters/osfs":     {},
 	"internal/adapters/podman":   {"internal/app", "internal/domain", "internal/adapters/exec"},
 	"internal/adapters/toml":     {"internal/domain"},

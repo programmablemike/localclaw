@@ -26,9 +26,9 @@ func TestKubeSecretGolden(t *testing.T) {
 
 func TestStoreSecretArgvAndBody(t *testing.T) {
 	f := exec.NewFake()
-	args := []string{"--connection", "lclaw-services", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", "litellm-master-key", "-"}
+	args := []string{"--connection", "lclaw", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", "litellm-master-key", "-"}
 	f.Script("podman", args, exec.Response{Stdout: "0a1b2c3d\n"})
-	if err := (&Client{Runner: f}).StoreSecret(context.Background(), domain.Services, "litellm-master-key", []byte("sk-...")); err != nil {
+	if err := (&Client{Runner: f}).StoreSecret(context.Background(), "litellm-master-key", []byte("sk-...")); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.Calls) != 1 || !reflect.DeepEqual(f.Calls[0].Args, args) || !f.Calls[0].Sensitive {
@@ -41,9 +41,9 @@ func TestStoreSecretArgvAndBody(t *testing.T) {
 
 func TestStoreSecretError(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-agent", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", "k", "-"},
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", "k", "-"},
 		exec.Response{Err: &exec.ExitError{Code: 125, Stderr: "Error: unable to connect"}})
-	err := (&Client{Runner: f}).StoreSecret(context.Background(), domain.Agent, "k", []byte("v"))
+	err := (&Client{Runner: f}).StoreSecret(context.Background(), "k", []byte("v"))
 	if err == nil || !strings.HasPrefix(err.Error(), "podman: store secret k: exit status 125") {
 		t.Fatalf("err = %v", err)
 	}
@@ -57,13 +57,13 @@ func TestStoreSecretErrorRedactsTheBody(t *testing.T) {
 	}
 
 	f := exec.NewFake()
-	args := []string{"--connection", "lclaw-services", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
+	args := []string{"--connection", "lclaw", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
 	f.Script("podman", args, exec.Response{Err: &exec.ExitError{
 		Code:   125,
 		Stderr: "Error: unable to decode input\n" + string(body) + "\n",
 	}})
 
-	err = (&Client{Runner: f}).StoreSecret(context.Background(), domain.Services, name, value)
+	err = (&Client{Runner: f}).StoreSecret(context.Background(), name, value)
 	if err == nil {
 		t.Fatal("want error")
 	}
@@ -100,13 +100,13 @@ func TestStoreSecretErrorRedactsATruncatedBody(t *testing.T) {
 	}
 
 	f := exec.NewFake()
-	args := []string{"--connection", "lclaw-services", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
+	args := []string{"--connection", "lclaw", "secret", "create", "--replace", "--label", "app.kubernetes.io/part-of=localclaw", name, "-"}
 	f.Script("podman", args, exec.Response{Err: &exec.ExitError{
 		Code:   125,
 		Stderr: "Error: unable to decode input\n" + string(body[len(body)-900:]) + "\n",
 	}})
 
-	err = (&Client{Runner: f}).StoreSecret(context.Background(), domain.Services, name, value)
+	err = (&Client{Runner: f}).StoreSecret(context.Background(), name, value)
 	if err == nil {
 		t.Fatal("want error")
 	}
@@ -122,17 +122,18 @@ func TestStoreSecretErrorRedactsATruncatedBody(t *testing.T) {
 func TestMachineRunning(t *testing.T) {
 	f := exec.NewFake()
 	f.Script("podman", []string{"machine", "list", "--format", "json"}, exec.Response{Stdout: fixture(t, "machine-list.json")})
-	c := &Client{Runner: f}
-	if running, err := c.MachineRunning(context.Background(), domain.Infra); err != nil || !running {
-		t.Fatalf("infra: %v, %v", running, err)
+	if running, err := (&Client{Runner: f}).MachineRunning(context.Background()); err != nil || !running {
+		t.Fatalf("lclaw: %v, %v", running, err)
 	}
-	if running, err := c.MachineRunning(context.Background(), domain.Agent); err != nil || running {
-		t.Fatalf("agent (not created): %v, %v", running, err)
+	f = exec.NewFake()
+	f.Script("podman", []string{"machine", "list", "--format", "json"}, exec.Response{Stdout: fixture(t, "machine-list-empty.json")})
+	if running, err := (&Client{Runner: f}).MachineRunning(context.Background()); err != nil || running {
+		t.Fatalf("not created: %v, %v", running, err)
 	}
 }
 
 func TestSecretExists(t *testing.T) {
-	args := []string{"--connection", "lclaw-services", "secret", "exists", "k"}
+	args := []string{"--connection", "lclaw", "secret", "exists", "k"}
 	for _, tt := range []struct {
 		resp exec.Response
 		want bool
@@ -144,7 +145,7 @@ func TestSecretExists(t *testing.T) {
 	} {
 		f := exec.NewFake()
 		f.Script("podman", args, tt.resp)
-		got, err := (&Client{Runner: f}).SecretExists(context.Background(), domain.Services, "k")
+		got, err := (&Client{Runner: f}).SecretExists(context.Background(), "k")
 		if (err != nil) != tt.err || got != tt.want {
 			t.Errorf("resp %+v: got %v, %v", tt.resp, got, err)
 		}
@@ -153,17 +154,17 @@ func TestSecretExists(t *testing.T) {
 
 func TestRemoveSecret(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "rm", "k"}, exec.Response{Stdout: "0a1b\n"})
-	if err := (&Client{Runner: f}).RemoveSecret(context.Background(), domain.Services, "k"); err != nil {
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "rm", "k"}, exec.Response{Stdout: "0a1b\n"})
+	if err := (&Client{Runner: f}).RemoveSecret(context.Background(), "k"); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestListSecretsByLabel(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "ls", "--quiet"}, exec.Response{Stdout: fixture(t, "secret-ls-quiet.txt")})
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "inspect", "0a1b2c3d4e5f60718293a4b5c", "1b2c3d4e5f60718293a4b5c6d"}, exec.Response{Stdout: fixture(t, "secret-inspect.json")})
-	got, err := (&Client{Runner: f}).ListSecrets(context.Background(), domain.Services)
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "ls", "--quiet"}, exec.Response{Stdout: fixture(t, "secret-ls-quiet.txt")})
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "inspect", "0a1b2c3d4e5f60718293a4b5c", "1b2c3d4e5f60718293a4b5c6d"}, exec.Response{Stdout: fixture(t, "secret-inspect.json")})
+	got, err := (&Client{Runner: f}).ListSecrets(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,8 +175,8 @@ func TestListSecretsByLabel(t *testing.T) {
 
 func TestListSecretsEmpty(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "ls", "--quiet"}, exec.Response{Stdout: ""})
-	got, err := (&Client{Runner: f}).ListSecrets(context.Background(), domain.Services)
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "ls", "--quiet"}, exec.Response{Stdout: ""})
+	got, err := (&Client{Runner: f}).ListSecrets(context.Background())
 	if err != nil || len(got) != 0 {
 		t.Fatalf("ListSecrets() = %v, %v", got, err)
 	}
@@ -186,21 +187,21 @@ func TestListSecretsEmpty(t *testing.T) {
 
 func TestListSecretsBadJSON(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "ls", "--quiet"}, exec.Response{Stdout: "abc\n"})
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "inspect", "abc"}, exec.Response{Stdout: "{not json"})
-	if _, err := (&Client{Runner: f}).ListSecrets(context.Background(), domain.Services); err == nil || !strings.HasPrefix(err.Error(), "podman: inspect secrets: decode: ") {
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "ls", "--quiet"}, exec.Response{Stdout: "abc\n"})
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "inspect", "abc"}, exec.Response{Stdout: "{not json"})
+	if _, err := (&Client{Runner: f}).ListSecrets(context.Background()); err == nil || !strings.HasPrefix(err.Error(), "podman: inspect secrets: decode: ") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
 func TestRemoveVolume(t *testing.T) {
-	exists := []string{"--connection", "lclaw-services", "volume", "exists", "k"}
-	rm := []string{"--connection", "lclaw-services", "volume", "rm", "k"}
+	exists := []string{"--connection", "lclaw", "volume", "exists", "k"}
+	rm := []string{"--connection", "lclaw", "volume", "rm", "k"}
 
 	f := exec.NewFake()
 	f.Script("podman", exists, exec.Response{})
 	f.Script("podman", rm, exec.Response{Stdout: "k\n"})
-	if err := (&Client{Runner: f}).RemoveVolume(context.Background(), domain.Services, "k"); err != nil {
+	if err := (&Client{Runner: f}).RemoveVolume(context.Background(), "k"); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.Calls) != 2 || !reflect.DeepEqual(f.Calls[1].Args, rm) {
@@ -209,7 +210,7 @@ func TestRemoveVolume(t *testing.T) {
 
 	f = exec.NewFake()
 	f.Script("podman", exists, exec.Response{Err: &exec.ExitError{Code: 1}})
-	if err := (&Client{Runner: f}).RemoveVolume(context.Background(), domain.Services, "k"); err != nil {
+	if err := (&Client{Runner: f}).RemoveVolume(context.Background(), "k"); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.Calls) != 1 {
@@ -219,8 +220,8 @@ func TestRemoveVolume(t *testing.T) {
 
 func TestSecretStoreNotFound(t *testing.T) {
 	f := exec.NewFake()
-	f.Script("podman", []string{"--connection", "lclaw-services", "secret", "ls", "--quiet"}, exec.Response{Err: exec.ErrNotFound})
-	if _, err := (&Client{Runner: f}).ListSecrets(context.Background(), domain.Services); !errors.Is(err, domain.ErrToolNotFound) {
+	f.Script("podman", []string{"--connection", "lclaw", "secret", "ls", "--quiet"}, exec.Response{Err: exec.ErrNotFound})
+	if _, err := (&Client{Runner: f}).ListSecrets(context.Background()); !errors.Is(err, domain.ErrToolNotFound) {
 		t.Fatalf("err = %v, want ErrToolNotFound", err)
 	}
 }

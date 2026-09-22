@@ -47,6 +47,9 @@ cleanup() {
   fi
   podman secret rm lclaw-wire-test >/dev/null 2>&1 || true
   podman volume rm --force lclaw-wire-test >/dev/null 2>&1 || true
+  for zone in infra services agent; do
+    podman network rm "lclaw-$zone" >/dev/null 2>&1 || true
+  done
   rm -rf "$tmp"
 }
 trap cleanup EXIT
@@ -139,6 +142,49 @@ if [ -s "$secrets" ]; then
   podman kube play "$secrets"
 fi
 
+# One Podman network per zone, as lclaw up creates them: lclaw-<zone>, with
+# --internal where lclaw.toml says so. A pod joins its own zone's network
+# and the networks its `bridges` entry names, so the same flags lclaw
+# passes are exercised here. The awk emits "<workload> <zone> <networks>"
+# with the networks comma-separated.
+zone_networks() {
+  awk '
+    /^\[zones\./ { zone = $0; sub(/^\[zones\./, "", zone); sub(/\].*$/, "", zone); next }
+    zone == "" { next }
+    /^internal *= *true/ { internal[zone] = 1; next }
+    /^workloads *=/ {
+      list = $0; sub(/^[^\[]*\[/, "", list); sub(/\].*$/, "", list); gsub(/[" ]/, "", list)
+      n = split(list, ws, ",")
+      for (i = 1; i <= n; i++) if (ws[i] != "") { wl[ws[i]] = zone; nets[ws[i]] = "lclaw-" zone }
+      next
+    }
+    /^bridges *=/ {
+      body = $0; sub(/^[^{]*\{/, "", body); sub(/\}.*$/, "", body)
+      m = split(body, entries, /\], */)
+      for (i = 1; i <= m; i++) {
+        e = entries[i]; if (e !~ /=/) continue
+        w = e; sub(/ *=.*$/, "", w); gsub(/[ "]/, "", w)
+        t = e; sub(/^[^\[]*\[/, "", t); gsub(/[" \]]/, "", t)
+        k = split(t, ts, ",")
+        for (j = 1; j <= k; j++) if (ts[j] != "") nets[w] = nets[w] ",lclaw-" ts[j]
+      }
+      next
+    }
+    END { for (w in wl) printf "%s %s %s %s\n", w, wl[w], nets[w], (wl[w] in internal) ? "internal" : "" }
+  ' "$dir/lclaw.toml"
+}
+
+echo "==> zone networks"
+for zone in infra services agent; do
+  podman network rm "lclaw-$zone" >/dev/null 2>&1 || true
+  if grep -A3 "^\[zones.$zone\]" "$dir/lclaw.toml" | grep -q '^internal *= *true'; then
+    podman network create --internal "lclaw-$zone"
+  else
+    podman network create "lclaw-$zone"
+  fi
+done
+
+zone_networks > "$tmp/zones.txt"
 for wdir in "$dir"/workloads/*/; do
   name=$(basename "$wdir")
   echo "==> $name: podman build"
@@ -148,10 +194,23 @@ for wdir in "$dir"/workloads/*/; do
     echo "==> $name: kube play skipped ($reason)"
     continue
   fi
-  echo "==> $name: podman kube play --replace"
-  podman kube play --replace "$wdir/pod.yaml"
+  nets=$(awk -v w="$name" '$1 == w { print $3 }' "$tmp/zones.txt")
+  if [ -z "$nets" ]; then
+    echo "$name is not listed under any zone in lclaw.toml" >&2
+    exit 1
+  fi
+  flags=""
+  for n in $(printf '%s' "$nets" | tr ',' ' '); do
+    flags="$flags --network $n"
+  done
+  echo "==> $name: podman kube play --replace$flags"
+  # shellcheck disable=SC2086
+  podman kube play --replace $flags "$wdir/pod.yaml"
   echo "==> $name: podman kube down"
   podman kube down "$wdir/pod.yaml"
+done
+for zone in infra services agent; do
+  podman network rm "lclaw-$zone"
 done
 
 echo "==> secret wire contract"

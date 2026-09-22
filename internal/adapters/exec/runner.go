@@ -11,7 +11,8 @@ import (
 )
 
 // Command is one external command. Stdin, when non-nil, is written to the
-// child's standard input. Sensitive marks a command whose output must never
+// child's standard input. Env holds KEY=VALUE pairs added to the child's
+// environment on top of this process's. Sensitive marks a command whose output must never
 // be logged; its name, arguments, duration and exit status still are. The
 // returned Result and any ExitError still carry the output, because adapters
 // read values from it (the keychain adapter reads a password line from
@@ -20,6 +21,7 @@ type Command struct {
 	Name      string
 	Args      []string
 	Stdin     io.Reader
+	Env       []string
 	Sensitive bool
 }
 

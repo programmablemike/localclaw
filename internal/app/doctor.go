@@ -11,15 +11,17 @@ import (
 
 // Doctor checks that the host can run LocalClaw.
 type Doctor struct {
-	Runtime  MachineRuntime
-	Envs     EnvironmentManager
-	Scaffold DirOpener
-	Topology TopologyLoader
-	Keychain Keychain
+	Runtime   MachineRuntime
+	Workloads WorkloadRuntime
+	Envs      EnvironmentManager
+	Scaffold  DirOpener
+	Topology  TopologyLoader
+	Keychain  Keychain
 }
 
 // Run executes the checks in a fixed order: flox version, podman version,
-// the scaffold directory at dir, its topology, then the machine list. Every
+// the scaffold directory at dir, its topology, then the machine and, when it
+// is running, the zone networks. Every
 // problem a user can fix is a Check in the report; the returned error is
 // non-nil only when the context ends.
 func (d *Doctor) Run(ctx context.Context, dir string) (domain.Report, error) {
@@ -47,7 +49,7 @@ func (d *Doctor) Run(ctx context.Context, dir string) (domain.Report, error) {
 
 	if podman.Status == domain.Fail {
 		r.Checks = append(r.Checks, domain.Check{
-			Name:    "machines",
+			Name:    "machine",
 			Status:  domain.Warn,
 			Summary: "skipped because the podman check failed",
 			Hint:    "fix podman, then run `lclaw doctor` again",
@@ -60,10 +62,23 @@ func (d *Doctor) Run(ctx context.Context, dir string) (domain.Report, error) {
 		return r, ctxErr
 	}
 	if err != nil {
-		r.Checks = append(r.Checks, domain.Check{Name: "machines", Status: domain.Fail, Summary: err.Error()})
+		r.Checks = append(r.Checks, domain.Check{Name: "machine", Status: domain.Fail, Summary: err.Error()})
 		return r, nil
 	}
-	r.Checks = append(r.Checks, domain.EvaluateMachines(domain.Roles(), machines)...)
+	machine, running := domain.EvaluateMachine(machines)
+	r.Checks = append(r.Checks, machine)
+	if !running || !topologyOK {
+		return r, nil
+	}
+	present, err := networksPresent(ctx, d.Workloads, domain.Roles())
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return r, ctxErr
+	}
+	if err != nil {
+		r.Checks = append(r.Checks, domain.Check{Name: "networks", Status: domain.Fail, Summary: err.Error()})
+		return r, nil
+	}
+	r.Checks = append(r.Checks, domain.EvaluateNetworks(top, domain.Roles(), present)...)
 	return r, nil
 }
 
@@ -102,7 +117,7 @@ func (d *Doctor) scaffoldChecks(dir string) ([]domain.Check, domain.Topology, bo
 	}
 	findings := domain.Validate(top, exists)
 	if len(findings) == 0 {
-		summary := fmt.Sprintf("%d machines, %d workloads", len(top.Machines), len(top.Workloads()))
+		summary := fmt.Sprintf("1 machine, %d zones, %d workloads", len(top.Zones), len(top.Workloads()))
 		return append(checks, domain.Check{Name: "topology", Status: domain.Pass, Summary: summary}), top, true
 	}
 	for _, f := range findings {
@@ -157,4 +172,20 @@ func (d *Doctor) secretChecks(ctx context.Context, top domain.Topology, topology
 		checks = append(checks, domain.EvaluateSecret(spec, err))
 	}
 	return checks
+}
+
+// networksPresent asks the runtime about each zone's network.
+func networksPresent(ctx context.Context, w WorkloadRuntime, roles []domain.Role) (map[string]bool, error) {
+	present := make(map[string]bool, len(roles))
+	for _, r := range roles {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		ok, err := w.NetworkExists(ctx, r.NetworkName())
+		if err != nil {
+			return nil, err
+		}
+		present[r.NetworkName()] = ok
+	}
+	return present, nil
 }

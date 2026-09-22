@@ -121,7 +121,7 @@ func TestResolveMissingUserSecretIsAFinding(t *testing.T) {
 }
 
 func TestResolveReportsEveryMissingSecret(t *testing.T) {
-	topo := domain.Topology{KeychainPath: kcPath, Machines: []domain.MachineSpec{{Name: "services", Secrets: []string{"anthropic-api-key", "openai-api-key"}}}}
+	topo := domain.Topology{KeychainPath: kcPath, Zones: []domain.ZoneSpec{{Name: "services", Secrets: []string{"anthropic-api-key", "openai-api-key"}}}}
 	kc := &fakeKeychain{exists: true}
 	r := &ResolveSecrets{Keychain: kc, Minter: &fakeMinter{err: ErrMinterUnavailable}, Random: &seqReader{}}
 	_, findings, err := r.Run(context.Background(), kcPath, servicesCatalogue(t, topo), domain.Services)
@@ -159,7 +159,7 @@ func TestResolveMinterUnavailableIsAFinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []domain.Check{{Name: "openclaw-litellm-key", Status: domain.Fail, Summary: "not minted: " + ErrMinterUnavailable.Error(), Hint: "bring the services machine up first"}}
+	want := []domain.Check{{Name: "openclaw-litellm-key", Status: domain.Fail, Summary: "not minted: " + ErrMinterUnavailable.Error(), Hint: "run `lclaw up services` first"}}
 	if !reflect.DeepEqual(findings, want) {
 		t.Fatalf("findings = %+v, want %+v", findings, want)
 	}
@@ -196,21 +196,21 @@ func TestResolveCancelled(t *testing.T) {
 func TestInjectStoresEverySecret(t *testing.T) {
 	tg := newFakeTarget()
 	secrets := []ResolvedSecret{{"a", []byte("1")}, {"b", []byte("2")}}
-	if err := (&InjectSecrets{Target: tg}).Run(context.Background(), domain.Services, secrets); err != nil {
+	if err := (&InjectSecrets{Target: tg}).Run(context.Background(), secrets); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(tg.calls, []string{"store services a", "store services b"}) {
+	if !reflect.DeepEqual(tg.calls, []string{"store a", "store b"}) {
 		t.Fatalf("calls = %v", tg.calls)
 	}
-	if string(tg.stores[domain.Services]["b"]) != "2" {
+	if string(tg.stores["b"]) != "2" {
 		t.Fatalf("store = %v", tg.stores)
 	}
 }
 
 func TestInjectStoreFailure(t *testing.T) {
 	tg := newFakeTarget()
-	tg.storeErr[domain.Services] = errors.New("podman: store secret: exit status 125")
-	err := (&InjectSecrets{Target: tg}).Run(context.Background(), domain.Services, []ResolvedSecret{{"a", []byte("1")}})
+	tg.storeErr = errors.New("podman: store secret: exit status 125")
+	err := (&InjectSecrets{Target: tg}).Run(context.Background(), []ResolvedSecret{{"a", []byte("1")}})
 	if err == nil || err.Error() != "inject secrets: a: podman: store secret: exit status 125" {
 		t.Fatalf("err = %v", err)
 	}
@@ -219,11 +219,11 @@ func TestInjectStoreFailure(t *testing.T) {
 func TestInjectCancelledBetweenSecrets(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	tg := &cancellingTarget{fakeTarget: newFakeTarget(), cancel: cancel}
-	err := (&InjectSecrets{Target: tg}).Run(ctx, domain.Services, []ResolvedSecret{{"a", []byte("1")}, {"b", []byte("2")}})
+	err := (&InjectSecrets{Target: tg}).Run(ctx, []ResolvedSecret{{"a", []byte("1")}, {"b", []byte("2")}})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
-	if !reflect.DeepEqual(tg.calls, []string{"store services a"}) {
+	if !reflect.DeepEqual(tg.calls, []string{"store a"}) {
 		t.Fatalf("calls = %v, want only the first store", tg.calls)
 	}
 }
@@ -234,31 +234,31 @@ type cancellingTarget struct {
 	cancel context.CancelFunc
 }
 
-func (t *cancellingTarget) StoreSecret(ctx context.Context, role domain.Role, name string, value []byte) error {
-	err := t.fakeTarget.StoreSecret(ctx, role, name, value)
+func (t *cancellingTarget) StoreSecret(ctx context.Context, name string, value []byte) error {
+	err := t.fakeTarget.StoreSecret(ctx, name, value)
 	t.cancel()
 	return err
 }
 
 func TestPurgeRemovesSecretsAndVolumes(t *testing.T) {
 	tg := newFakeTarget()
-	tg.store(domain.Services)["litellm-master-key"] = []byte("m")
-	tg.store(domain.Services)["anthropic-api-key"] = []byte("a")
-	tg.volumes[domain.Services] = map[string]bool{"anthropic-api-key": true, "litellm-db-data": true}
-	names, err := (&PurgeSecrets{Target: tg}).Run(context.Background(), domain.Services)
+	tg.stores["litellm-master-key"] = []byte("m")
+	tg.stores["anthropic-api-key"] = []byte("a")
+	tg.volumes = map[string]bool{"anthropic-api-key": true, "litellm-db-data": true}
+	names, err := (&PurgeSecrets{Target: tg}).Run(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(names, []string{"anthropic-api-key", "litellm-master-key"}) {
 		t.Fatalf("names = %v", names)
 	}
-	if len(tg.stores[domain.Services]) != 0 {
-		t.Fatalf("store = %v", tg.stores[domain.Services])
+	if len(tg.stores) != 0 {
+		t.Fatalf("store = %v", tg.stores)
 	}
-	if !reflect.DeepEqual(tg.volumes[domain.Services], map[string]bool{"litellm-db-data": true}) {
-		t.Fatalf("volumes = %v, want only the unrelated one", tg.volumes[domain.Services])
+	if !reflect.DeepEqual(tg.volumes, map[string]bool{"litellm-db-data": true}) {
+		t.Fatalf("volumes = %v, want only the unrelated one", tg.volumes)
 	}
-	want := []string{"list services", "remove services anthropic-api-key", "rmvolume services anthropic-api-key", "remove services litellm-master-key", "rmvolume services litellm-master-key"}
+	want := []string{"list", "remove anthropic-api-key", "rmvolume anthropic-api-key", "remove litellm-master-key", "rmvolume litellm-master-key"}
 	if !reflect.DeepEqual(tg.calls, want) {
 		t.Fatalf("calls = %v, want %v", tg.calls, want)
 	}
@@ -267,7 +267,7 @@ func TestPurgeRemovesSecretsAndVolumes(t *testing.T) {
 func TestPurgeListError(t *testing.T) {
 	tg := newFakeTarget()
 	tg.listErr = errors.New("podman: list secrets: exit status 125")
-	if _, err := (&PurgeSecrets{Target: tg}).Run(context.Background(), domain.Services); err == nil || err.Error() != "purge secrets: podman: list secrets: exit status 125" {
+	if _, err := (&PurgeSecrets{Target: tg}).Run(context.Background()); err == nil || err.Error() != "purge secrets: podman: list secrets: exit status 125" {
 		t.Fatalf("err = %v", err)
 	}
 }

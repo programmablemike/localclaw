@@ -29,13 +29,14 @@ func TestLoadValid(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := domain.Topology{
-		Schema:       1,
+		Schema:       2,
 		Provider:     "libkrun",
 		KeychainPath: "/home/tester/Library/Keychains/lclaw.keychain-db",
-		Machines: []domain.MachineSpec{
-			{Name: "infra", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10, Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}},
-			{Name: "services", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}, Secrets: []string{"anthropic-api-key"}},
-			{Name: "agent", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []domain.Workload{"openclaw"}, Volumes: []string{"/Users/me/workspace:/mnt/workspace"}},
+		Machine:      domain.MachineSpec{CPUs: 4, MemoryMiB: 8192, DiskGiB: 60, Volumes: []string{"/Users/me/workspace:/mnt/workspace"}},
+		Zones: []domain.ZoneSpec{
+			{Name: "infra", Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}, Bridges: map[domain.Workload][]string{"kuma-cp": {"services", "agent"}}},
+			{Name: "services", Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}, Secrets: []string{"anthropic-api-key"}, Bridges: map[domain.Workload][]string{"agentgateway": {"agent"}}},
+			{Name: "agent", Internal: true, Workloads: []domain.Workload{"openclaw"}},
 		},
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -44,21 +45,39 @@ func TestLoadValid(t *testing.T) {
 }
 
 func TestLoadOrdersRolesThenUnknownNames(t *testing.T) {
-	src := "schema = 1\nprovider = \"libkrun\"\n" +
-		"[machines.zeta]\ncpus = 1\nmemory-mib = 1\ndisk-gib = 1\nworkloads = []\n" +
-		"[machines.agent]\ncpus = 1\nmemory-mib = 1\ndisk-gib = 1\nworkloads = []\n" +
-		"[machines.alpha]\ncpus = 1\nmemory-mib = 1\ndisk-gib = 1\nworkloads = []\n" +
-		"[machines.infra]\ncpus = 1\nmemory-mib = 1\ndisk-gib = 1\nworkloads = []\n"
+	src := "schema = 2\nprovider = \"libkrun\"\n" +
+		"[zones.zeta]\nworkloads = []\n" +
+		"[zones.agent]\nworkloads = []\n" +
+		"[zones.alpha]\nworkloads = []\n" +
+		"[zones.infra]\nworkloads = []\n"
 	got, err := (Loader{}).Load(fstest.MapFS{domain.TopologyFile: {Data: []byte(src)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var names []string
-	for _, m := range got.Machines {
-		names = append(names, m.Name)
+	for _, z := range got.Zones {
+		names = append(names, z.Name)
 	}
 	if want := []string{"infra", "agent", "alpha", "zeta"}; !reflect.DeepEqual(names, want) {
-		t.Fatalf("machine order = %v, want %v", names, want)
+		t.Fatalf("zone order = %v, want %v", names, want)
+	}
+}
+
+// A schema 1 file decodes rather than failing on unknown keys, so that
+// validation can report the schema with a migration hint.
+func TestLoadSchema1DecodesForValidation(t *testing.T) {
+	src := "schema = 1\nprovider = \"libkrun\"\n" +
+		"[machines.infra]\ncpus = 1\nmemory-mib = 1024\ndisk-gib = 10\nworkloads = [\"wireguard\"]\nsecrets = [\"x\"]\n"
+	got, err := (Loader{}).Load(fstest.MapFS{domain.TopologyFile: {Data: []byte(src)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Schema != 1 || len(got.Zones) != 0 {
+		t.Fatalf("Load() = %+v, want schema 1 and no zones", got)
+	}
+	findings := domain.Validate(got, func(string) bool { return false })
+	if len(findings) == 0 || findings[0].Where != "schema" || !strings.Contains(findings[0].Message, "init --force") {
+		t.Fatalf("findings = %+v, want the schema finding first with the migration hint", findings)
 	}
 }
 
@@ -77,7 +96,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for unknown keys")
 	}
-	if got, want := err.Error(), "lclaw.toml: unknown keys: colour, machines.infra.cpu"; got != want {
+	if got, want := err.Error(), "lclaw.toml: unknown keys: colour, machine.cpu"; got != want {
 		t.Fatalf("err = %q, want %q", got, want)
 	}
 }
@@ -97,7 +116,7 @@ func TestLoadWrongType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a type error")
 	}
-	if !strings.HasPrefix(err.Error(), "lclaw.toml: ") || !strings.Contains(err.Error(), "machines.infra.cpus") {
+	if !strings.HasPrefix(err.Error(), "lclaw.toml: ") || !strings.Contains(err.Error(), "machine.cpus") {
 		t.Fatalf("err = %q, want the file name and the offending key", err)
 	}
 }
@@ -115,7 +134,7 @@ func TestLoadKeychainPathExpandsHome(t *testing.T) {
 
 func TestLoadKeychainPathDefaultsWhenTableAbsent(t *testing.T) {
 	t.Setenv("HOME", "/home/tester")
-	data := "schema = 1\nprovider = \"libkrun\"\n"
+	data := "schema = 2\nprovider = \"libkrun\"\n"
 	top, err := Loader{}.Load(fstest.MapFS{domain.TopologyFile: {Data: []byte(data)}})
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +145,7 @@ func TestLoadKeychainPathDefaultsWhenTableAbsent(t *testing.T) {
 }
 
 func TestLoadKeychainPathAbsoluteIsKept(t *testing.T) {
-	data := "schema = 1\n\n[keychain]\npath = \"/Volumes/Secure/lclaw.keychain-db\"\n"
+	data := "schema = 2\n\n[keychain]\npath = \"/Volumes/Secure/lclaw.keychain-db\"\n"
 	top, err := Loader{}.Load(fstest.MapFS{domain.TopologyFile: {Data: []byte(data)}})
 	if err != nil {
 		t.Fatal(err)

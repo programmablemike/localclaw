@@ -1,0 +1,15 @@
+PASS  machine                running
+PASS  network/infra          present
+PASS  network/services       present
+PASS  network/agent          present (internal)
+PASS  infra/wireguard        running
+PASS  infra/kuma-cp          running
+PASS  infra/gateway          running
+PASS  services/litellm-db    running
+FAIL  services/litellm       degraded: container litellm-litellm exited
+      hint: podman --connection lclaw pod logs litellm
+PASS  services/agentgateway  running
+WARN  agent/openclaw         absent
+      hint: run `lclaw up agent`
+
+9 passed, 1 warnings, 1 failed

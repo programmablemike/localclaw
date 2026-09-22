@@ -50,9 +50,8 @@ that reach it.
 - [Set up a development environment](set-up-a-development-environment.md):
   Enter the Flox environment, run the check script, build lclaw from source
   and run doctor against your machine.
-- [Apply a deployment by hand](apply-a-deployment-by-hand.md): Create, start
-  and load one LocalClaw machine from the scaffold with plain podman
-  commands, for troubleshooting or when lclaw is not enough.
+- [Apply a deployment by hand](apply-a-deployment-by-hand.md): Create, start and load the LocalClaw machine and one zone from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough.
+- [Bring the system up and down](bring-the-system-up-and-down.md): Run lclaw up for the first time, apply an edit, check status, take one zone or everything down, and destroy the machine.
 - [Manage secrets](manage-secrets.md): Create the keychain, set a provider
   API key, rotate the LiteLLM master key, and read a value to log into the
   LiteLLM dashboard.

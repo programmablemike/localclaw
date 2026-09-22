@@ -35,7 +35,7 @@ var initWritten = app.InitReport{
 	Dir: testDefaultDir,
 	Written: []string{
 		"lclaw.toml",
-		"machines/agent/playbook.yaml",
+		"machine/playbook.yaml",
 		"workloads/openclaw/.containerignore",
 		"workloads/openclaw/Containerfile",
 		"workloads/openclaw/pod.yaml",
@@ -45,7 +45,7 @@ var initWritten = app.InitReport{
 
 var initMixed = app.InitReport{
 	Dir:     testDefaultDir,
-	Written: []string{"lclaw.toml", "machines/agent/playbook.yaml"},
+	Written: []string{"lclaw.toml", "machine/playbook.yaml"},
 	Skipped: []string{"workloads/openclaw/pod.yaml"},
 	Failed: []app.InitFailure{{
 		Path: "workloads/openclaw/Containerfile",

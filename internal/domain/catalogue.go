@@ -6,22 +6,22 @@ import (
 )
 
 // Catalogue is every secret lclaw knows about: the built-in entries merged
-// with the names declared per machine in lclaw.toml. Entries are kept
+// with the names declared per zone in lclaw.toml. Entries are kept
 // sorted by name so every listing has the same order.
 type Catalogue struct {
 	entries []SecretSpec
 }
 
-// NewCatalogue merges builtin with declared, a map from machine name (as
+// NewCatalogue merges builtin with declared, a map from zone name (as
 // written in lclaw.toml) to secret names. Any built-in entry a user sets by
 // hand becomes source "user" at set time, not here. A name listed under two
-// machines is one entry received by both.
+// zones is one entry consumed by both.
 //
 // Problems are returned as findings, all of them, in the shape topology
 // validation uses: a malformed name, a name that collides with a built-in
-// entry, or a name listed twice under one machine. A machine name that is
+// entry, or a name listed twice under one machine. A zone name that is
 // not a role is not a finding here and its secrets are ignored, because
-// Validate already reports the machine itself; reporting it again would
+// Validate already reports the zone itself; reporting it again would
 // show the same problem twice.
 func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue, []Finding) {
 	byName := make(map[string]int, len(builtin)) // name -> index in entries
@@ -40,7 +40,7 @@ func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue
 		if !ok {
 			continue
 		}
-		where := "machines." + role.String() + ".secrets"
+		where := "zones." + role.String() + ".secrets"
 		seen := map[string]bool{}
 		for _, name := range list {
 			switch {
@@ -56,10 +56,10 @@ func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue
 			}
 			seen[name] = true
 			if i, ok := byName[name]; ok {
-				entries[i].Machines = append(entries[i].Machines, role)
+				entries[i].Zones = append(entries[i].Zones, role)
 				continue
 			}
-			entries = append(entries, SecretSpec{Name: name, Source: User, Machines: []Role{role}, Rotatable: true})
+			entries = append(entries, SecretSpec{Name: name, Source: User, Zones: []Role{role}, Rotatable: true})
 			byName[name] = len(entries) - 1
 		}
 	}
@@ -92,9 +92,9 @@ func (c Catalogue) Lookup(name string) (SecretSpec, bool) {
 	return SecretSpec{}, false
 }
 
-// ForMachine returns the entries the machine with role r receives, in name
+// ForZone returns the entries the zone with role r consumes, in name
 // order.
-func (c Catalogue) ForMachine(r Role) []SecretSpec {
+func (c Catalogue) ForZone(r Role) []SecretSpec {
 	var out []SecretSpec
 	for _, e := range c.entries {
 		if e.UsedBy(r) {

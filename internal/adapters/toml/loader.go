@@ -6,6 +6,8 @@ package toml
 import (
 	"fmt"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -22,7 +24,13 @@ type Loader struct{}
 type file struct {
 	Schema   int                `toml:"schema"`
 	Provider string             `toml:"provider"`
+	Keychain keychain           `toml:"keychain"`
 	Machines map[string]machine `toml:"machines"`
+}
+
+// keychain is the [keychain] table. An absent table means the default.
+type keychain struct {
+	Path string `toml:"path"`
 }
 
 type machine struct {
@@ -30,6 +38,7 @@ type machine struct {
 	MemoryMiB int      `toml:"memory-mib"`
 	DiskGiB   int      `toml:"disk-gib"`
 	Workloads []string `toml:"workloads"`
+	Secrets   []string `toml:"secrets"`
 	Volumes   []string `toml:"volumes"`
 }
 
@@ -53,11 +62,16 @@ func (Loader) Load(scaffold fs.FS) (domain.Topology, error) {
 		}
 		return domain.Topology{}, fmt.Errorf("%s: unknown keys: %s", domain.TopologyFile, strings.Join(keys, ", "))
 	}
-	return toDomain(f), nil
+	return toDomain(f)
 }
 
-func toDomain(f file) domain.Topology {
+func toDomain(f file) (domain.Topology, error) {
 	t := domain.Topology{Schema: f.Schema, Provider: f.Provider}
+	path, err := keychainPath(f.Keychain.Path)
+	if err != nil {
+		return domain.Topology{}, err
+	}
+	t.KeychainPath = path
 	names := make([]string, 0, len(f.Machines))
 	for name := range f.Machines {
 		names = append(names, name)
@@ -71,13 +85,35 @@ func toDomain(f file) domain.Topology {
 	})
 	for _, name := range names {
 		m := f.Machines[name]
-		spec := domain.MachineSpec{Name: name, CPUs: m.CPUs, MemoryMiB: m.MemoryMiB, DiskGiB: m.DiskGiB, Volumes: m.Volumes}
+		spec := domain.MachineSpec{Name: name, CPUs: m.CPUs, MemoryMiB: m.MemoryMiB, DiskGiB: m.DiskGiB, Secrets: m.Secrets, Volumes: m.Volumes}
 		for _, w := range m.Workloads {
 			spec.Workloads = append(spec.Workloads, domain.Workload(w))
 		}
 		t.Machines = append(t.Machines, spec)
 	}
-	return t
+	return t, nil
+}
+
+// keychainPath applies the default and makes the path absolute. It is the
+// one value in the topology that names a file outside the scaffold, so it
+// is resolved here rather than by every caller; the domain never touches
+// the file system and fs.FS cannot reach the home directory.
+func keychainPath(p string) (string, error) {
+	if p == "" {
+		p = domain.DefaultKeychainPath
+	}
+	raw := p
+	if strings.HasPrefix(p, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("%s: keychain path %q: %w", domain.TopologyFile, raw, err)
+		}
+		p = filepath.Join(home, p[2:])
+	}
+	if !filepath.IsAbs(p) {
+		return "", fmt.Errorf("%s: keychain path %q must be absolute or start with ~/", domain.TopologyFile, raw)
+	}
+	return filepath.Clean(p), nil
 }
 
 // roleRank orders known roles first, in domain.Roles order.

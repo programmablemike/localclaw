@@ -52,16 +52,27 @@ func TestCatalogueForMachine(t *testing.T) {
 func TestNewCatalogueFindings(t *testing.T) {
 	_, findings := NewCatalogue(BuiltinSecrets(), map[string][]string{
 		"services": {"Bad_Name", "litellm-master-key", "dup", "dup"},
-		"laptop":   {"whatever"},
 	})
-	want := []Check{
-		{Name: "machines.services.secrets", Status: Fail, Summary: `"Bad_Name" is not a valid secret name`, Hint: "use a lowercase DNS label of at most 63 characters"},
-		{Name: "machines.services.secrets", Status: Fail, Summary: `"litellm-master-key" collides with a built-in secret`, Hint: "remove it from lclaw.toml; built-in secrets are always available"},
-		{Name: "machines.services.secrets", Status: Fail, Summary: `"dup" is listed twice`, Hint: "remove the duplicate from lclaw.toml"},
-		{Name: "machines.laptop", Status: Fail, Summary: "unknown machine", Hint: "machines are infra, services and agent"},
+	want := []Finding{
+		{Where: "machines.services.secrets", Message: `"Bad_Name" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
+		{Where: "machines.services.secrets", Message: `"litellm-master-key" collides with a built-in secret; built-in secrets are always available, so remove it`},
+		{Where: "machines.services.secrets", Message: `"dup" is listed twice`},
 	}
 	if !reflect.DeepEqual(findings, want) {
 		t.Fatalf("findings =\n%+v\nwant\n%+v", findings, want)
+	}
+}
+
+// An unknown machine is Validate's finding, not the catalogue's: the
+// catalogue would otherwise report the same problem a second time. Its
+// secrets are ignored here, and Validate names the machine.
+func TestNewCatalogueIgnoresUnknownMachine(t *testing.T) {
+	cat, findings := NewCatalogue(BuiltinSecrets(), map[string][]string{"laptop": {"whatever"}})
+	if len(findings) != 0 {
+		t.Fatalf("findings = %+v, want none", findings)
+	}
+	if _, ok := cat.Lookup("whatever"); ok {
+		t.Fatal("a secret under an unknown machine must not enter the catalogue")
 	}
 }
 

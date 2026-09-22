@@ -12,6 +12,16 @@
       "summary": "5.8.4 (minimum 5.8.0)"
     },
     {
+      "name": "keychain",
+      "status": "pass",
+      "summary": "/kc/lclaw.keychain-db"
+    },
+    {
+      "name": "anthropic-api-key",
+      "status": "pass",
+      "summary": "set"
+    },
+    {
       "name": "lclaw-infra",
       "status": "warn",
       "summary": "not created",

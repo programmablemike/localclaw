@@ -33,7 +33,7 @@ func versionCommand(d Deps) *ucli.Command {
 				Go:       runtime.Version(),
 				Platform: runtime.GOOS + "/" + runtime.GOARCH,
 			}
-			if cmd.Root().String("output") == "json" {
+			if jsonOutput(cmd) {
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
 				return enc.Encode(info)

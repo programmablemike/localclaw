@@ -53,3 +53,6 @@ that reach it.
 - [Apply a deployment by hand](apply-a-deployment-by-hand.md): Create, start
   and load one LocalClaw machine from the scaffold with plain podman
   commands, for troubleshooting or when lclaw is not enough.
+- [Manage secrets](manage-secrets.md): Create the keychain, set a provider
+  API key, rotate the LiteLLM master key, and read a value to log into the
+  LiteLLM dashboard.

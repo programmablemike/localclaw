@@ -1,0 +1,24 @@
+# A keychain path that is neither absolute nor rooted at the home directory.
+schema = 1
+provider = "libkrun"
+
+[keychain]
+path = "keychains/lclaw.keychain-db"
+
+[machines.infra]
+cpus = 1
+memory-mib = 1024
+disk-gib = 10
+workloads = []
+
+[machines.services]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = []
+
+[machines.agent]
+cpus = 2
+memory-mib = 4096
+disk-gib = 30
+workloads = []

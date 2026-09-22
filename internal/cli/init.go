@@ -37,14 +37,17 @@ func initCommand(d Deps) *ucli.Command {
 				return err
 			}
 			w := cmd.Root().Writer
-			if cmd.Root().String("output") == "json" {
+			if jsonOutput(cmd) {
 				if err := renderInitJSON(w, report); err != nil {
 					return err
 				}
 			} else {
 				renderInitText(w, report)
 			}
-			if len(report.Failed) > 0 {
+			if report.Keychain.State == app.KeychainCreated && d.Prompt == nil {
+				fmt.Fprintln(cmd.Root().ErrWriter, "lclaw: warning: standard input is not a terminal, so security read the new keychain's password from it; an empty stdin creates a keychain with an empty password")
+			}
+			if !report.Ok() {
 				return ErrInitFailed
 			}
 			return nil
@@ -64,21 +67,40 @@ func renderInitText(w io.Writer, r app.InitReport) {
 	for _, f := range r.Failed {
 		fmt.Fprintf(w, "failed   %s: %v\n", f.Path, f.Err)
 	}
+	switch r.Keychain.State {
+	case app.KeychainCreated:
+		fmt.Fprintf(w, "created  %s\n", r.Keychain.Path)
+	case app.KeychainSkipped:
+		fmt.Fprintf(w, "skipped  %s\n", r.Keychain.Path)
+	case app.KeychainFailed:
+		name := r.Keychain.Path
+		if name == "" {
+			name = "keychain"
+		}
+		fmt.Fprintf(w, "failed   %s: %v\n", name, r.Keychain.Err)
+	}
 	fmt.Fprintf(w, "\n%s: %d written, %d skipped, %d failed\n", r.Dir, len(r.Written), len(r.Skipped), len(r.Failed))
 }
 
 // initDTO and initFailureDTO are the JSON shape of the init report. Arrays
 // are always present, never null.
 type initDTO struct {
-	Dir     string           `json:"dir"`
-	Written []string         `json:"written"`
-	Skipped []string         `json:"skipped"`
-	Failed  []initFailureDTO `json:"failed"`
+	Dir      string           `json:"dir"`
+	Written  []string         `json:"written"`
+	Skipped  []string         `json:"skipped"`
+	Failed   []initFailureDTO `json:"failed"`
+	Keychain keychainDTO      `json:"keychain"`
 }
 
 type initFailureDTO struct {
 	Path  string `json:"path"`
 	Error string `json:"error"`
+}
+
+type keychainDTO struct {
+	Path  string `json:"path,omitempty"`
+	State string `json:"state"`
+	Error string `json:"error,omitempty"`
 }
 
 func renderInitJSON(w io.Writer, r app.InitReport) error {
@@ -90,6 +112,10 @@ func renderInitJSON(w io.Writer, r app.InitReport) error {
 	}
 	for _, f := range r.Failed {
 		dto.Failed = append(dto.Failed, initFailureDTO{Path: f.Path, Error: f.Err.Error()})
+	}
+	dto.Keychain = keychainDTO{Path: r.Keychain.Path, State: string(r.Keychain.State)}
+	if r.Keychain.Err != nil {
+		dto.Keychain.Error = r.Keychain.Err.Error()
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

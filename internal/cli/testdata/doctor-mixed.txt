@@ -2,10 +2,10 @@ PASS  flox               1.13.1 (minimum 1.0.0)
 PASS  podman             5.8.4 (minimum 5.8.0)
 PASS  keychain           /kc/lclaw.keychain-db
 PASS  anthropic-api-key  set
-WARN  lclaw-infra        not created
-      hint: run `lclaw up` once it is available
-WARN  lclaw-services     not created
-      hint: run `lclaw up` once it is available
-PASS  lclaw-agent        running
+PASS  machine            running
+PASS  network/infra      present
+WARN  network/services   missing
+      hint: run `lclaw up services`
+PASS  network/agent      present (internal)
 
-5 passed, 2 warnings, 0 failed
+7 passed, 1 warnings, 0 failed

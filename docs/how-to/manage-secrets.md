@@ -16,11 +16,6 @@ related:
 When you finish, LocalClaw's keychain exists, your provider key is stored
 in it, and you know how to rotate a generated secret and read one back.
 
-> **Changing.** The `[machines.services]` table and the `services  stored`
-> lines below reflect the current three-machine scaffold. Under
-> [Single machine](../explanation/single-machine.md) the table is
-> `[zones.services]` and there is one store; the commands are the same.
-
 ## Prerequisites
 
 - A `lclaw` binary, built as in
@@ -63,11 +58,11 @@ and exits 0.
 
 ### 2. Declare the key in `lclaw.toml`
 
-The default file already declares `anthropic-api-key` on the `services`
-machine. For another provider, add its name to the same list:
+The default file already declares `anthropic-api-key` in the `services`
+zone. For another provider, add its name to the same list:
 
 ```toml
-[machines.services]
+[zones.services]
 secrets = ["anthropic-api-key", "openai-api-key"]
 ```
 
@@ -92,10 +87,9 @@ lclaw secrets set anthropic-api-key --from-file ~/Downloads/anthropic.key
 pbpaste | lclaw secrets set anthropic-api-key
 ```
 
-If the machine that uses the key is running, the command also stores the
-key in that machine's Podman secret store and prints `services  stored`. A
-machine that is stopped or not created prints `services  stopped` and is
-picked up by the next `lclaw up`.
+If the machine is running, the command also stores the key in its Podman
+secret store and prints `store  stored`. A machine that is stopped or not
+created prints `store  stopped`; the next `lclaw up` injects the key.
 
 ### 4. Rotate the LiteLLM master key
 
@@ -106,7 +100,7 @@ restores the entry's default source:
 lclaw secrets update litellm-master-key --generate
 ```
 
-When the `services` machine is running, the command ends with:
+When the machine is running, the command ends with:
 
 ```text
 pods pick the new value up on the next `lclaw up`

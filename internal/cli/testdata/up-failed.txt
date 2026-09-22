@@ -1,0 +1,14 @@
+PASS  machine              created and started
+PASS  network/infra        created
+PASS  network/services     created
+PASS  network/agent        created (internal)
+PASS  infra/secrets        0 injected
+PASS  infra/kuma-cp        built and playing
+PASS  infra/gateway        built and playing
+PASS  services/secrets     4 injected
+PASS  services/litellm-db  built and playing
+FAIL  services/litellm     podman: build localhost/lclaw/litellm:latest: exit status 1: STEP 1/1: FROM ghcr.io/berriai/litellm: no such image
+WARN  agent                skipped because services/litellm failed
+      hint: fix it, then run `lclaw up` again
+
+9 passed, 1 warnings, 1 failed

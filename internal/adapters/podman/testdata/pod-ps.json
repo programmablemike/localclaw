@@ -1,0 +1,58 @@
+[
+    {
+        "Cgroup": "user.slice",
+        "Containers": [
+            {
+                "Id": "7c0e4d0b6d3a3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a",
+                "Names": "b1f1c0d0e0f0-infra",
+                "Status": "running"
+            },
+            {
+                "Id": "8d1f5e1c7e4b4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9",
+                "Names": "litellm-litellm",
+                "Status": "running"
+            }
+        ],
+        "Created": "2026-09-22T10:00:00.000000-07:00",
+        "Id": "b1f1c0d0e0f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6",
+        "InfraId": "7c0e4d0b6d3a3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a",
+        "Name": "litellm",
+        "Namespace": "",
+        "Networks": [
+            "lclaw-services"
+        ],
+        "Status": "Running",
+        "Labels": {
+            "app.kubernetes.io/name": "litellm",
+            "app.kubernetes.io/part-of": "localclaw"
+        }
+    },
+    {
+        "Cgroup": "user.slice",
+        "Containers": [
+            {
+                "Id": "9e2a6f2d8f5c5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0",
+                "Names": "c2a2d1e1f1a1-infra",
+                "Status": "running"
+            },
+            {
+                "Id": "af3b7a3e9a6d6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1",
+                "Names": "openclaw-openclaw",
+                "Status": "exited"
+            }
+        ],
+        "Created": "2026-09-22T10:01:00.000000-07:00",
+        "Id": "c2a2d1e1f1a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7",
+        "InfraId": "9e2a6f2d8f5c5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0",
+        "Name": "openclaw",
+        "Namespace": "",
+        "Networks": [
+            "lclaw-agent"
+        ],
+        "Status": "Degraded",
+        "Labels": {
+            "app.kubernetes.io/name": "openclaw",
+            "app.kubernetes.io/part-of": "localclaw"
+        }
+    }
+]

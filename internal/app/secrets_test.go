@@ -67,10 +67,10 @@ func TestSecretsListKeychainMissing(t *testing.T) {
 }
 
 func TestSecretsListReportsFindings(t *testing.T) {
-	topo := domain.Topology{KeychainPath: kcPath, Machines: []domain.MachineSpec{{Name: "services", Secrets: []string{"Bad"}}}}
+	topo := domain.Topology{KeychainPath: kcPath, Zones: []domain.ZoneSpec{{Name: "services", Secrets: []string{"Bad"}}}}
 	_, err := newSecrets(&fakeKeychain{exists: true}, newFakeTarget(), topo).List(context.Background(), "/d")
 	var fe *FindingsError
-	if !errors.As(err, &fe) || len(fe.Findings) != 1 || fe.Findings[0].Where != "machines.services.secrets" {
+	if !errors.As(err, &fe) || len(fe.Findings) != 1 || fe.Findings[0].Where != "zones.services.secrets" {
 		t.Fatalf("err = %v, want FindingsError naming the services secrets table", err)
 	}
 }
@@ -87,7 +87,7 @@ func TestSecretsListTopologyError(t *testing.T) {
 func TestSecretsSetStoresAndPushes(t *testing.T) {
 	kc := &fakeKeychain{exists: true}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
+	tg.running = true
 	o, err := newSecrets(kc, tg, servicesTopology()).Set(context.Background(), "/d", "anthropic-api-key", []byte("sk-ant"))
 	if err != nil {
 		t.Fatal(err)
@@ -98,10 +98,10 @@ func TestSecretsSetStoresAndPushes(t *testing.T) {
 	if !reflect.DeepEqual(kc.calls, []string{"exists " + kcPath, "put anthropic-api-key source=user replace=false"}) {
 		t.Fatalf("keychain calls = %v", kc.calls)
 	}
-	if string(tg.stores[domain.Services]["anthropic-api-key"]) != "sk-ant" {
+	if string(tg.stores["anthropic-api-key"]) != "sk-ant" {
 		t.Fatalf("store = %v", tg.stores)
 	}
-	want := Outcome{Name: "anthropic-api-key", Stores: []StoreOutcome{{Role: domain.Services, State: StoreStored}}}
+	want := Outcome{Name: "anthropic-api-key", Store: StoreOutcome{State: StoreStored}}
 	if !reflect.DeepEqual(o, want) {
 		t.Fatalf("Outcome = %+v, want %+v", o, want)
 	}
@@ -113,10 +113,10 @@ func TestSecretsSetSkipsStoppedMachine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(o.Stores, []StoreOutcome{{Role: domain.Services, State: StoreStopped}}) {
-		t.Fatalf("Stores = %+v", o.Stores)
+	if o.Store != (StoreOutcome{State: StoreStopped}) {
+		t.Fatalf("Store = %+v", o.Store)
 	}
-	if !reflect.DeepEqual(tg.calls, []string{"running services"}) {
+	if !reflect.DeepEqual(tg.calls, []string{"running"}) {
 		t.Fatalf("target calls = %v, want no store call", tg.calls)
 	}
 }
@@ -159,7 +159,7 @@ func TestSecretsSetInvalidValue(t *testing.T) {
 func TestSecretsUpdateReplacesAndPushes(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"anthropic-api-key": {value: []byte("old"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
+	tg.running = true
 	o, err := newSecrets(kc, tg, servicesTopology()).Update(context.Background(), "/d", "anthropic-api-key", []byte("new"), false)
 	if err != nil {
 		t.Fatal(err)
@@ -170,8 +170,8 @@ func TestSecretsUpdateReplacesAndPushes(t *testing.T) {
 	if !reflect.DeepEqual(kc.calls, []string{"exists " + kcPath, "describe anthropic-api-key", "put anthropic-api-key source=user replace=true"}) {
 		t.Fatalf("keychain calls = %v", kc.calls)
 	}
-	if !reflect.DeepEqual(o.Stores, []StoreOutcome{{Role: domain.Services, State: StoreStored}}) {
-		t.Fatalf("Stores = %+v", o.Stores)
+	if o.Store != (StoreOutcome{State: StoreStored}) {
+		t.Fatalf("Store = %+v", o.Store)
 	}
 }
 
@@ -185,7 +185,7 @@ func TestSecretsUpdateNotSet(t *testing.T) {
 func TestSecretsUpdateGenerateRestoresDefaultSource(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"litellm-master-key": {value: []byte("sk-byhand"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
+	tg.running = true
 	o, err := newSecrets(kc, tg, servicesTopology()).Update(context.Background(), "/d", "litellm-master-key", nil, true)
 	if err != nil {
 		t.Fatal(err)
@@ -193,8 +193,8 @@ func TestSecretsUpdateGenerateRestoresDefaultSource(t *testing.T) {
 	if got := kc.items["litellm-master-key"]; string(got.value) != masterKeyFromSeq || got.source != domain.Generated {
 		t.Fatalf("item = %+v", got)
 	}
-	if string(tg.stores[domain.Services]["litellm-master-key"]) != masterKeyFromSeq {
-		t.Fatalf("store = %q", tg.stores[domain.Services]["litellm-master-key"])
+	if string(tg.stores["litellm-master-key"]) != masterKeyFromSeq {
+		t.Fatalf("store = %q", tg.stores["litellm-master-key"])
 	}
 	if o.Failed() {
 		t.Fatalf("Outcome = %+v", o)
@@ -239,18 +239,17 @@ func TestSecretsUpdateGenerateMinted(t *testing.T) {
 	}
 }
 
-func TestSecretsUpdateOneStoreFails(t *testing.T) {
+func TestSecretsUpdateStoreFails(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"shared-token": {value: []byte("old"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
-	tg.running[domain.Agent] = true
-	tg.storeErr[domain.Agent] = errors.New("podman: store secret: exit status 125")
+	tg.running = true
+	tg.storeErr = errors.New("podman: store secret: exit status 125")
 	o, err := newSecrets(kc, tg, sharedTopology()).Update(context.Background(), "/d", "shared-token", []byte("new"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(o.Stores) != 2 || o.Stores[0].State != StoreStored || o.Stores[1].State != StoreFailed || o.Stores[1].Err == nil {
-		t.Fatalf("Stores = %+v", o.Stores)
+	if o.Store.State != StoreFailed || o.Store.Err == nil {
+		t.Fatalf("Store = %+v", o.Store)
 	}
 	if !o.Failed() {
 		t.Fatal("Failed() should be true")
@@ -260,11 +259,11 @@ func TestSecretsUpdateOneStoreFails(t *testing.T) {
 	}
 }
 
-func TestSecretsDeleteRemovesEverywhere(t *testing.T) {
+func TestSecretsDeleteRemovesFromTheStore(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"shared-token": {value: []byte("v"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
-	tg.store(domain.Services)["shared-token"] = []byte("v")
+	tg.running = true
+	tg.stores["shared-token"] = []byte("v")
 	o, err := newSecrets(kc, tg, sharedTopology()).Delete(context.Background(), "/d", "shared-token")
 	if err != nil {
 		t.Fatal(err)
@@ -272,10 +271,10 @@ func TestSecretsDeleteRemovesEverywhere(t *testing.T) {
 	if _, ok := kc.items["shared-token"]; ok {
 		t.Fatal("keychain item still present")
 	}
-	if _, ok := tg.stores[domain.Services]["shared-token"]; ok {
+	if _, ok := tg.stores["shared-token"]; ok {
 		t.Fatal("store still holds the secret")
 	}
-	want := Outcome{Name: "shared-token", Stores: []StoreOutcome{{Role: domain.Services, State: StoreRemoved}, {Role: domain.Agent, State: StoreStopped}}}
+	want := Outcome{Name: "shared-token", Store: StoreOutcome{State: StoreRemoved}}
 	if !reflect.DeepEqual(o, want) {
 		t.Fatalf("Outcome = %+v, want %+v", o, want)
 	}
@@ -284,13 +283,13 @@ func TestSecretsDeleteRemovesEverywhere(t *testing.T) {
 func TestSecretsDeleteAbsentFromStore(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"anthropic-api-key": {value: []byte("v"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
+	tg.running = true
 	o, err := newSecrets(kc, tg, servicesTopology()).Delete(context.Background(), "/d", "anthropic-api-key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(o.Stores, []StoreOutcome{{Role: domain.Services, State: StoreAbsent}}) {
-		t.Fatalf("Stores = %+v", o.Stores)
+	if o.Store != (StoreOutcome{State: StoreAbsent}) {
+		t.Fatalf("Store = %+v", o.Store)
 	}
 }
 
@@ -315,8 +314,8 @@ func TestSecretsDeleteNonRotatableWarns(t *testing.T) {
 func TestSecretsDescribe(t *testing.T) {
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{"shared-token": {value: []byte("v"), source: domain.User}}}
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
-	tg.store(domain.Services)["shared-token"] = []byte("v")
+	tg.running = true
+	tg.stores["shared-token"] = []byte("v")
 	d, err := newSecrets(kc, tg, sharedTopology()).Describe(context.Background(), "/d", "shared-token")
 	if err != nil {
 		t.Fatal(err)
@@ -324,15 +323,17 @@ func TestSecretsDescribe(t *testing.T) {
 	if !d.Set || d.Source != domain.User || d.Created != t0 || d.Modified != t0.Add(time.Minute) {
 		t.Fatalf("detail = %+v", d)
 	}
-	want := []StoreOutcome{{Role: domain.Services, State: StoreStored}, {Role: domain.Agent, State: StoreStopped}}
-	if !reflect.DeepEqual(d.Stores, want) {
-		t.Fatalf("Stores = %+v, want %+v", d.Stores, want)
+	if d.Store != (StoreOutcome{State: StoreStored}) {
+		t.Fatalf("Store = %+v", d.Store)
+	}
+	if !reflect.DeepEqual(d.Spec.Zones, []domain.Role{domain.Services, domain.Agent}) {
+		t.Fatalf("Zones = %v, want services then agent", d.Spec.Zones)
 	}
 }
 
 func TestSecretsDescribeUnset(t *testing.T) {
 	tg := newFakeTarget()
-	tg.running[domain.Services] = true
+	tg.running = true
 	d, err := newSecrets(&fakeKeychain{exists: true}, tg, servicesTopology()).Describe(context.Background(), "/d", "litellm-master-key")
 	if err != nil {
 		t.Fatal(err)
@@ -340,8 +341,8 @@ func TestSecretsDescribeUnset(t *testing.T) {
 	if d.Set || d.Source != domain.Generated || !d.Created.IsZero() {
 		t.Fatalf("detail = %+v", d)
 	}
-	if !reflect.DeepEqual(d.Stores, []StoreOutcome{{Role: domain.Services, State: StoreAbsent}}) {
-		t.Fatalf("Stores = %+v", d.Stores)
+	if d.Store != (StoreOutcome{State: StoreAbsent}) {
+		t.Fatalf("Store = %+v", d.Store)
 	}
 }
 

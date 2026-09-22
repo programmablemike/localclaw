@@ -20,6 +20,10 @@ spec:
     - name: litellm-db
       image: localhost/lclaw/litellm-db:latest
       imagePullPolicy: Never
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
       env:
         - name: POSTGRES_USER
           value: litellm

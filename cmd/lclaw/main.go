@@ -1,4 +1,4 @@
-// Command lclaw manages LocalClaw's Podman machines. This file is the
+// Command lclaw manages LocalClaw's Podman machine. This file is the
 // composition root: the only place adapters are constructed and the only
 // place os.Exit is called.
 package main
@@ -20,6 +20,7 @@ import (
 	"github.com/programmablemike/localclaw/internal/adapters/exec"
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
 	"github.com/programmablemike/localclaw/internal/adapters/keychain"
+	"github.com/programmablemike/localclaw/internal/adapters/litellm"
 	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
 	"github.com/programmablemike/localclaw/internal/adapters/toml"
@@ -44,14 +45,27 @@ func run(args []string, stdout, stderr io.Writer) int {
 	loader := toml.Loader{}
 	kc := &keychain.Client{Runner: runner}
 	podmanClient := &podman.Client{Runner: runner}
+	minter := &litellm.Minter{Runner: runner}
 
 	deps := cli.Deps{
 		Doctor: &app.Doctor{
-			Runtime:  podmanClient,
-			Envs:     &flox.Client{Runner: runner},
-			Scaffold: files,
-			Topology: loader,
-			Keychain: kc,
+			Runtime:   podmanClient,
+			Workloads: podmanClient,
+			Envs:      &flox.Client{Runner: runner},
+			Scaffold:  files,
+			Topology:  loader,
+			Keychain:  kc,
+		},
+		Lifecycle: &app.Lifecycle{
+			Runtime:   podmanClient,
+			Workloads: podmanClient,
+			Scaffold:  files,
+			Topology:  loader,
+			Keychain:  kc,
+			Target:    podmanClient,
+			Minter:    minter,
+			Random:    rand.Reader,
+			Progress:  cli.Progress(stderr),
 		},
 		Init: &app.Init{
 			Defaults: scaffoldFS(),
@@ -65,7 +79,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 			Topology: loader,
 			Keychain: kc,
 			Target:   podmanClient,
-			Minter:   app.UnavailableMinter{},
+			Minter:   minter,
 			Random:   rand.Reader,
 		},
 		Build:      buildInfo(),

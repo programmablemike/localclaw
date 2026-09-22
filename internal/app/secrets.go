@@ -33,7 +33,7 @@ type SecretStatus struct {
 	Set    bool
 }
 
-// StoreState is what happened, or what is true, in one machine's store.
+// StoreState is what happened, or what is true, in the machine's store.
 // The strings are part of the CLI's interface.
 type StoreState string
 
@@ -45,9 +45,8 @@ const (
 	StoreFailed  StoreState = "failed"
 )
 
-// StoreOutcome is one machine's row in an Outcome or a SecretDetail.
+// StoreOutcome is the store's row in an Outcome or a SecretDetail.
 type StoreOutcome struct {
-	Role  domain.Role
 	State StoreState
 	Err   error
 }
@@ -57,26 +56,19 @@ type SecretDetail struct {
 	SecretStatus
 	Created  time.Time
 	Modified time.Time
-	Stores   []StoreOutcome
+	Store    StoreOutcome
 }
 
 // Outcome is what set, update and delete report: the keychain succeeded,
-// and here is what happened on each machine that uses the secret.
+// and here is what happened in the machine's store.
 type Outcome struct {
 	Name    string
-	Stores  []StoreOutcome
+	Store   StoreOutcome
 	Warning string
 }
 
-// Failed reports whether any machine's store failed.
-func (o Outcome) Failed() bool {
-	for _, s := range o.Stores {
-		if s.State == StoreFailed {
-			return true
-		}
-	}
-	return false
-}
+// Failed reports whether the store failed.
+func (o Outcome) Failed() bool { return o.Store.State == StoreFailed }
 
 // prepare loads the topology from the scaffold directory and builds the
 // catalogue, exactly as Doctor reaches it: open the directory, then decode
@@ -114,7 +106,7 @@ func requireKeychain(ctx context.Context, kc Keychain, path string) error {
 func lookup(cat domain.Catalogue, dir, name string) (domain.SecretSpec, error) {
 	spec, ok := cat.Lookup(name)
 	if !ok {
-		return domain.SecretSpec{}, fmt.Errorf("%w: %q is not in the catalogue; declare it under machines.<role>.secrets in %s",
+		return domain.SecretSpec{}, fmt.Errorf("%w: %q is not in the catalogue; declare it under zones.<role>.secrets in %s",
 			ErrUnknownSecret, name, filepath.Join(dir, domain.TopologyFile))
 	}
 	return spec, nil
@@ -171,26 +163,21 @@ func (s *Secrets) Describe(ctx context.Context, dir, name string) (SecretDetail,
 	default:
 		d.Set, d.Source, d.Created, d.Modified = true, item.Source, item.Created, item.Modified
 	}
-	for _, role := range spec.Machines {
-		if err := ctx.Err(); err != nil {
-			return SecretDetail{}, err
-		}
-		d.Stores = append(d.Stores, s.inspect(ctx, role, name))
-	}
+	d.Store = s.inspect(ctx, name)
 	return d, nil
 }
 
-// inspect reports what one machine's store holds for name.
-func (s *Secrets) inspect(ctx context.Context, role domain.Role, name string) StoreOutcome {
-	so := StoreOutcome{Role: role}
-	running, err := s.Target.MachineRunning(ctx, role)
+// inspect reports what the machine's store holds for name.
+func (s *Secrets) inspect(ctx context.Context, name string) StoreOutcome {
+	var so StoreOutcome
+	running, err := s.Target.MachineRunning(ctx)
 	switch {
 	case err != nil:
 		so.State, so.Err = StoreFailed, err
 	case !running:
 		so.State = StoreStopped
 	default:
-		exists, err := s.Target.SecretExists(ctx, role, name)
+		exists, err := s.Target.SecretExists(ctx, name)
 		switch {
 		case err != nil:
 			so.State, so.Err = StoreFailed, err
@@ -203,8 +190,8 @@ func (s *Secrets) inspect(ctx context.Context, role domain.Role, name string) St
 	return so
 }
 
-// Set creates a secret with source user and pushes it to every running
-// machine that uses it.
+// Set creates a secret with source user and pushes it to the machine's
+// store when the machine is running.
 func (s *Secrets) Set(ctx context.Context, dir, name string, value []byte) (Outcome, error) {
 	topo, cat, err := s.prepare(dir)
 	if err != nil {
@@ -283,8 +270,8 @@ func (s *Secrets) produce(ctx context.Context, spec domain.SecretSpec) ([]byte, 
 	return spec.Generator.Generate(s.Random)
 }
 
-// Delete removes the keychain item and the secret from the store of every
-// running machine that uses it. Deleting an entry that may not be rotated
+// Delete removes the keychain item and the secret from the machine's store
+// when the machine is running. Deleting an entry that may not be rotated
 // sets a warning, because the next up generates a new value.
 func (s *Secrets) Delete(ctx context.Context, dir, name string) (Outcome, error) {
 	topo, cat, err := s.prepare(dir)
@@ -308,20 +295,15 @@ func (s *Secrets) Delete(ctx context.Context, dir, name string) (Outcome, error)
 	if !spec.Rotatable {
 		o.Warning = fmt.Sprintf("%s may not be rotated: the next `lclaw up` generates a new value and anything encrypted with the old one becomes unreadable", name)
 	}
-	for _, role := range spec.Machines {
-		if err := ctx.Err(); err != nil {
-			return o, err
+	so := s.inspect(ctx, name)
+	if so.State == StoreStored {
+		if err := s.Target.RemoveSecret(ctx, name); err != nil {
+			so.State, so.Err = StoreFailed, err
+		} else {
+			so.State = StoreRemoved
 		}
-		so := s.inspect(ctx, role, name)
-		if so.State == StoreStored {
-			if err := s.Target.RemoveSecret(ctx, role, name); err != nil {
-				so.State, so.Err = StoreFailed, err
-			} else {
-				so.State = StoreRemoved
-			}
-		}
-		o.Stores = append(o.Stores, so)
 	}
+	o.Store = so
 	return o, nil
 }
 
@@ -347,30 +329,28 @@ func (s *Secrets) Get(ctx context.Context, dir, name string) ([]byte, error) {
 	return value, nil
 }
 
-// push stores value on every running machine that uses spec and reports
-// what happened on each. Partial failure does not roll back: the keychain
+// push stores value in the machine's store when the machine is running and
+// reports what happened. A store failure does not roll back: the keychain
 // is the source of truth and the next up reconciles.
 func (s *Secrets) push(ctx context.Context, spec domain.SecretSpec, value []byte) (Outcome, error) {
 	o := Outcome{Name: spec.Name}
-	for _, role := range spec.Machines {
-		if err := ctx.Err(); err != nil {
-			return o, err
-		}
-		so := StoreOutcome{Role: role}
-		running, err := s.Target.MachineRunning(ctx, role)
-		switch {
-		case err != nil:
-			so.State, so.Err = StoreFailed, err
-		case !running:
-			so.State = StoreStopped
-		default:
-			if err := s.Target.StoreSecret(ctx, role, spec.Name, value); err != nil {
-				so.State, so.Err = StoreFailed, err
-			} else {
-				so.State = StoreStored
-			}
-		}
-		o.Stores = append(o.Stores, so)
+	if err := ctx.Err(); err != nil {
+		return o, err
 	}
+	var so StoreOutcome
+	running, err := s.Target.MachineRunning(ctx)
+	switch {
+	case err != nil:
+		so.State, so.Err = StoreFailed, err
+	case !running:
+		so.State = StoreStopped
+	default:
+		if err := s.Target.StoreSecret(ctx, spec.Name, value); err != nil {
+			so.State, so.Err = StoreFailed, err
+		} else {
+			so.State = StoreStored
+		}
+	}
+	o.Store = so
 	return o, nil
 }

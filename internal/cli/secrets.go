@@ -53,7 +53,7 @@ func fromFileFlag() ucli.Flag {
 func secretsList(d Deps) *ucli.Command {
 	return &ucli.Command{
 		Name:         "list",
-		Usage:        "list every secret with its source, machines and state",
+		Usage:        "list every secret with its source, zones and state",
 		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
 			if cmd.Args().Present() {
@@ -80,7 +80,7 @@ func secretsList(d Deps) *ucli.Command {
 func secretsDescribe(d Deps) *ucli.Command {
 	return &ucli.Command{
 		Name:         "describe",
-		Usage:        "show a secret's source, machines, timestamps and store state, never its value",
+		Usage:        "show a secret's source, zones, timestamps and store state, never its value",
 		ArgsUsage:    "NAME",
 		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {

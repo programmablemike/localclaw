@@ -22,21 +22,25 @@
       "summary": "set"
     },
     {
-      "name": "lclaw-infra",
-      "status": "warn",
-      "summary": "not created",
-      "hint": "run `lclaw up` once it is available"
-    },
-    {
-      "name": "lclaw-services",
-      "status": "warn",
-      "summary": "not created",
-      "hint": "run `lclaw up` once it is available"
-    },
-    {
-      "name": "lclaw-agent",
+      "name": "machine",
       "status": "pass",
       "summary": "running"
+    },
+    {
+      "name": "network/infra",
+      "status": "pass",
+      "summary": "present"
+    },
+    {
+      "name": "network/services",
+      "status": "warn",
+      "summary": "missing",
+      "hint": "run `lclaw up services`"
+    },
+    {
+      "name": "network/agent",
+      "status": "pass",
+      "summary": "present (internal)"
     }
   ]
 }

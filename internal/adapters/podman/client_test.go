@@ -73,7 +73,7 @@ func TestListMachines(t *testing.T) {
 	}
 	want := []domain.Machine{
 		{Name: "podman-machine-default", Running: false},
-		{Name: "lclaw-infra", Running: true},
+		{Name: "lclaw", Running: true},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ListMachines() = %+v, want %+v", got, want)

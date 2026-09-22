@@ -1,4 +1,4 @@
-# LocalClaw first-boot playbook for the agent machine (lclaw-agent).
+# LocalClaw first-boot playbook for the machine (lclaw).
 #
 # `podman machine init --playbook` copies this one file into the VM and runs
 # it once after the first boot, as the core user. It must stay
@@ -8,7 +8,7 @@
 # every container whose restart policy is "always" (which is what the Pod
 # files set) comes back after the VM reboots. Podman's machine image enables
 # lingering for core but leaves this service off.
-- name: Prepare the LocalClaw agent machine
+- name: Prepare the LocalClaw machine
   hosts: localhost
   connection: local
   gather_facts: false

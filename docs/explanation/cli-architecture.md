@@ -26,8 +26,9 @@ The examples below name three machines, `lclaw-infra`, `lclaw-services`
 and `lclaw-agent`, because that was the topology when this page was
 written. [Single machine](single-machine.md) replaced it on 2026-09-21
 with one machine and one network per zone; the layering, the ports and
-the report shape described here are unchanged by that, and the machine
-checks become one machine check plus one per network.
+the report shape described here were unchanged by that, and the machine
+checks became one `machine` check plus one per network, as the
+[command reference](../reference/cli.md#doctor) now shows.
 
 ## Goals and constraints
 

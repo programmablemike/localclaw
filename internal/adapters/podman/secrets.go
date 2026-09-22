@@ -21,20 +21,15 @@ const (
 	partOfValue = "localclaw"
 )
 
-// connection prefixes args with the remote connection for role.
-func connection(role domain.Role, args ...string) []string {
-	return append([]string{"--connection", role.MachineName()}, args...)
-}
-
 // MachineRunning implements app.SecretTarget from the machine list. A
 // machine that does not exist is not running.
-func (c *Client) MachineRunning(ctx context.Context, role domain.Role) (bool, error) {
+func (c *Client) MachineRunning(ctx context.Context) (bool, error) {
 	machines, err := c.ListMachines(ctx)
 	if err != nil {
 		return false, err
 	}
 	for _, m := range machines {
-		if m.Name == role.MachineName() {
+		if m.Name == domain.MachineName {
 			return m.Running, nil
 		}
 	}
@@ -44,14 +39,14 @@ func (c *Client) MachineRunning(ctx context.Context, role domain.Role) (bool, er
 // StoreSecret wraps value as a Kubernetes Secret, the only shape kube play
 // accepts, and pipes it to secret create --replace. The value travels on
 // stdin and the command is sensitive.
-func (c *Client) StoreSecret(ctx context.Context, role domain.Role, name string, value []byte) error {
+func (c *Client) StoreSecret(ctx context.Context, name string, value []byte) error {
 	body, err := kubeSecret(name, value)
 	if err != nil {
 		return fmt.Errorf("podman: store secret %s: %w", name, err)
 	}
 	_, err = c.Runner.Run(ctx, exec.Command{
 		Name:      "podman",
-		Args:      connection(role, "secret", "create", "--replace", "--label", partOfKey+"="+partOfValue, name, "-"),
+		Args:      connection("secret", "create", "--replace", "--label", partOfKey+"="+partOfValue, name, "-"),
 		Stdin:     bytes.NewReader(body),
 		Sensitive: true,
 	})
@@ -88,14 +83,14 @@ func kubeSecret(name string, value []byte) ([]byte, error) {
 
 // SecretExists implements app.SecretTarget with secret exists, which exits
 // 0 when present and 1 when absent.
-func (c *Client) SecretExists(ctx context.Context, role domain.Role, name string) (bool, error) {
-	_, err := c.run(ctx, connection(role, "secret", "exists", name)...)
+func (c *Client) SecretExists(ctx context.Context, name string) (bool, error) {
+	_, err := c.run(ctx, connection("secret", "exists", name)...)
 	return existsResult("secret exists "+name, err)
 }
 
 // RemoveSecret implements app.SecretTarget.
-func (c *Client) RemoveSecret(ctx context.Context, role domain.Role, name string) error {
-	if _, err := c.run(ctx, connection(role, "secret", "rm", name)...); err != nil {
+func (c *Client) RemoveSecret(ctx context.Context, name string) error {
+	if _, err := c.run(ctx, connection("secret", "rm", name)...); err != nil {
 		return wrap("remove secret "+name, err)
 	}
 	return nil
@@ -104,8 +99,8 @@ func (c *Client) RemoveSecret(ctx context.Context, role domain.Role, name string
 // ListSecrets implements app.SecretTarget. secret ls filters only by name
 // and id, so the adapter lists every id, inspects them, and keeps the ones
 // carrying lclaw's label. Only the name and labels are decoded.
-func (c *Client) ListSecrets(ctx context.Context, role domain.Role) ([]string, error) {
-	res, err := c.run(ctx, connection(role, "secret", "ls", "--quiet")...)
+func (c *Client) ListSecrets(ctx context.Context) ([]string, error) {
+	res, err := c.run(ctx, connection("secret", "ls", "--quiet")...)
 	if err != nil {
 		return nil, wrap("list secrets", err)
 	}
@@ -113,7 +108,7 @@ func (c *Client) ListSecrets(ctx context.Context, role domain.Role) ([]string, e
 	if len(ids) == 0 {
 		return []string{}, nil
 	}
-	res, err = c.run(ctx, connection(role, append([]string{"secret", "inspect"}, ids...)...)...)
+	res, err = c.run(ctx, connection(append([]string{"secret", "inspect"}, ids...)...)...)
 	if err != nil {
 		return nil, wrap("inspect secrets", err)
 	}
@@ -139,8 +134,8 @@ func (c *Client) ListSecrets(ctx context.Context, role domain.Role) ([]string, e
 // RemoveVolume implements app.SecretTarget. A secret volume created by kube
 // play is a named volume with the secret's name; removing it after kube
 // down leaves nothing of the value on the machine's disk.
-func (c *Client) RemoveVolume(ctx context.Context, role domain.Role, name string) error {
-	_, err := c.run(ctx, connection(role, "volume", "exists", name)...)
+func (c *Client) RemoveVolume(ctx context.Context, name string) error {
+	_, err := c.run(ctx, connection("volume", "exists", name)...)
 	exists, err := existsResult("volume exists "+name, err)
 	if err != nil {
 		return err
@@ -148,7 +143,7 @@ func (c *Client) RemoveVolume(ctx context.Context, role domain.Role, name string
 	if !exists {
 		return nil
 	}
-	if _, err := c.run(ctx, connection(role, "volume", "rm", name)...); err != nil {
+	if _, err := c.run(ctx, connection("volume", "rm", name)...); err != nil {
 		return wrap("remove volume "+name, err)
 	}
 	return nil

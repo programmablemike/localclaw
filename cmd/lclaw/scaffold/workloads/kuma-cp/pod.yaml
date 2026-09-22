@@ -15,6 +15,10 @@ spec:
     - name: kuma-cp
       image: localhost/lclaw/kuma-cp:latest
       imagePullPolicy: Never
+      resources:
+        limits:
+          cpu: "1"
+          memory: 512Mi
       args:
         - run
       ports:

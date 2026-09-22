@@ -2,7 +2,7 @@
 title: "Single machine"
 description: "Why LocalClaw runs on one Podman machine with one network per zone, not three machines, what Podman on macOS allows, and what changes in lclaw.toml."
 diataxis: explanation
-status: draft
+status: stable
 last_reviewed: 2026-09-22
 tags: [podman, machine, network, topology, isolation, kuma, design-decision]
 related:
@@ -99,11 +99,11 @@ option. Recorded as the shape to reach for if the threat model changes.
 ## What the shape is now
 
 One Podman machine named `lclaw`, three Podman networks named after the
-roles, and the same seven workloads.
+roles, and six workloads.
 
 | Zone       | Network          | Workloads                              | Reachable from                      |
 | ---------- | ---------------- | -------------------------------------- | ----------------------------------- |
-| `infra`    | `lclaw-infra`    | `wireguard`, `kuma-cp`, `gateway`      | the host, through published ports   |
+| `infra`    | `lclaw-infra`    | `kuma-cp`, `gateway`                   | the host, through published ports   |
 | `services` | `lclaw-services` | `litellm-db`, `litellm`, `agentgateway` | `infra`, through `kuma-cp`          |
 | `agent`    | `lclaw-agent`    | `openclaw`                             | `services`, through `agentgateway`; the zone is `--internal` |
 
@@ -167,7 +167,7 @@ disk-gib = 60
 # volumes = ["/Users/me/workspace:/mnt/workspace"]
 
 [zones.infra]
-workloads = ["wireguard", "kuma-cp", "gateway"]
+workloads = ["kuma-cp", "gateway"]
 # Pods in this zone that also join other zones' networks.
 bridges = { kuma-cp = ["services", "agent"] }
 
@@ -229,15 +229,41 @@ check per zone network when the machine is running.
   the trade this page records, and the Lima alternative above is the way
   back if it stops being acceptable.
 
-## What lands with the code
+## Refinements made during implementation
 
-- `docs/reference/scaffold.md`: the `schema = 2` topology and its rules.
-  The README, the reference pages and the how-to guides already describe
-  or point to this shape; the reference and how-to pages carry a
-  "Changing" note until the code matches them.
-- The `lclaw.toml` loader, `Validate`, `init`'s embedded defaults, and
-  `doctor`'s machine and network checks.
-- The [lifecycle commands](lifecycle-commands.md) that create the machine
-  and the networks and apply the zones, which are designed on the page
-  that follows this one.
-- This page becomes `stable` when the implementation matches it.
+The code landed on 2026-09-22 and matches this page with these changes,
+recorded so the page stays accurate. Where a change contradicts something
+above, the [scaffold reference](../reference/scaffold.md) is the fact.
+
+- **`internal` defaults to `false` for every zone, including `agent`.**
+  The default file sets `internal = true` on the agent zone explicitly,
+  because a default that differs per zone is a rule nobody can see in the
+  file. Validation refuses an internal zone that no bridge reaches.
+- **A schema 1 file still decodes.** The loader keeps the `[machines.*]`
+  tables as ignored fields so that an old file reaches validation and gets
+  the `schema` finding with the `init --force` hint, rather than failing
+  on "unknown keys" with no explanation.
+- **Every default Pod file carries `resources.limits`**, sized from the
+  old per-machine budgets, and the `openclaw` file drops all capabilities
+  and forbids privilege escalation. `--userns auto` is passed by `up` for
+  every pod of an internal zone rather than written in the file, because
+  `kube play` takes it as a flag.
+- **`init --force` does not delete the old `machines/` directory.** The
+  writer only writes; the scaffold reference says to remove it by hand.
+- **WireGuard is gone.** Its job was peering between machines, and there
+  is one machine. Kuma's sidecars carry their own mTLS across the zone
+  bridges, so nothing needs a tunnel underneath. It was also the one
+  workload needing `NET_ADMIN` and a kernel module, the first pod every
+  `up` built, and a 51820/udp port on the host. Remote access to the
+  machine, the one thing it could still have done, is a feature for its own
+  design note, not a default workload; decided 2026-09-22.
+
+## What landed with the code
+
+- [`docs/reference/scaffold.md`](../reference/scaffold.md): the
+  `schema = 2` topology, its rules, the zones and the default limits.
+- The README architecture section, the `lclaw.toml` loader, `Validate`,
+  `init`'s embedded defaults, and `doctor`'s `machine` and `network/<zone>`
+  checks.
+- The [lifecycle commands](lifecycle-commands.md).
+- This page is `stable`: the implementation matches it.

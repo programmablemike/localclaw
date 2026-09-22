@@ -1,5 +1,5 @@
 written  lclaw.toml
-written  machines/agent/playbook.yaml
+written  machine/playbook.yaml
 written  workloads/openclaw/.containerignore
 written  workloads/openclaw/Containerfile
 written  workloads/openclaw/pod.yaml

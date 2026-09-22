@@ -38,15 +38,16 @@ var mixed = domain.Report{Checks: []domain.Check{
 	{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.8.0)"},
 	{Name: "keychain", Status: domain.Pass, Summary: "/kc/lclaw.keychain-db"},
 	{Name: "anthropic-api-key", Status: domain.Pass, Summary: "set"},
-	{Name: "lclaw-infra", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
-	{Name: "lclaw-services", Status: domain.Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
-	{Name: "lclaw-agent", Status: domain.Pass, Summary: "running"},
+	{Name: "machine", Status: domain.Pass, Summary: "running"},
+	{Name: "network/infra", Status: domain.Pass, Summary: "present"},
+	{Name: "network/services", Status: domain.Warn, Summary: "missing", Hint: "run `lclaw up services`"},
+	{Name: "network/agent", Status: domain.Pass, Summary: "present (internal)"},
 }}
 
 var failed = domain.Report{Checks: []domain.Check{
 	{Name: "flox", Status: domain.Pass, Summary: "1.13.1 (minimum 1.0.0)"},
 	{Name: "podman", Status: domain.Fail, Summary: "not found", Hint: domain.PodmanRequirement.InstallHint},
-	{Name: "machines", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
+	{Name: "machine", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
 }}
 
 func TestDoctorText(t *testing.T) {

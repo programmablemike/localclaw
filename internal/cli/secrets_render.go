@@ -36,7 +36,7 @@ func writeTable(w io.Writer, rows [][]string) {
 	}
 }
 
-func machinesText(roles []domain.Role) string {
+func zonesText(roles []domain.Role) string {
 	names := make([]string, 0, len(roles))
 	for _, r := range roles {
 		names = append(names, r.String())
@@ -74,9 +74,9 @@ func storeText(s app.StoreOutcome) string {
 }
 
 func renderListText(w io.Writer, rows []app.SecretStatus) {
-	table := [][]string{{"NAME", "SOURCE", "MACHINES", "STATE"}}
+	table := [][]string{{"NAME", "SOURCE", "ZONES", "STATE"}}
 	for _, r := range rows {
-		table = append(table, []string{r.Spec.Name, r.Source.String(), machinesText(r.Spec.Machines), stateText(r)})
+		table = append(table, []string{r.Spec.Name, r.Source.String(), zonesText(r.Spec.Zones), stateText(r)})
 	}
 	writeTable(w, table)
 }
@@ -84,40 +84,29 @@ func renderListText(w io.Writer, rows []app.SecretStatus) {
 func renderDetailText(w io.Writer, d app.SecretDetail) {
 	fmt.Fprintf(w, "name:      %s\n", d.Spec.Name)
 	fmt.Fprintf(w, "source:    %s\n", d.Source)
-	fmt.Fprintf(w, "machines:  %s\n", machinesText(d.Spec.Machines))
+	fmt.Fprintf(w, "zones:     %s\n", zonesText(d.Spec.Zones))
 	fmt.Fprintf(w, "state:     %s\n", stateWord(d.Set))
 	if d.Set {
 		fmt.Fprintf(w, "created:   %s\n", d.Created.UTC().Format(time.RFC3339))
 		fmt.Fprintf(w, "modified:  %s\n", d.Modified.UTC().Format(time.RFC3339))
 	}
-	fmt.Fprintln(w, "stores:")
-	var rows [][]string
-	for _, s := range d.Stores {
-		rows = append(rows, []string{"  " + s.Role.String(), storeText(s)})
-	}
-	writeTable(w, rows)
+	fmt.Fprintf(w, "store:     %s\n", storeText(d.Store))
 }
 
 func renderOutcomeText(w io.Writer, verb string, o app.Outcome) {
 	fmt.Fprintf(w, "%s %s\n", verb, o.Name)
-	var rows [][]string
-	stored := false
-	for _, s := range o.Stores {
-		rows = append(rows, []string{"  " + s.Role.String(), storeText(s)})
-		stored = stored || s.State == app.StoreStored
-	}
-	writeTable(w, rows)
-	if verb == "updated" && stored {
+	fmt.Fprintf(w, "  store  %s\n", storeText(o.Store))
+	if verb == "updated" && o.Store.State == app.StoreStored {
 		fmt.Fprintln(w, "pods pick the new value up on the next `lclaw up`")
 	}
 }
 
 // The JSON shapes. State and source strings are part of the interface.
 type secretDTO struct {
-	Name     string   `json:"name"`
-	Source   string   `json:"source"`
-	Machines []string `json:"machines"`
-	State    string   `json:"state"`
+	Name   string   `json:"name"`
+	Source string   `json:"source"`
+	Zones  []string `json:"zones"`
+	State  string   `json:"state"`
 }
 
 type listDTO struct {
@@ -125,43 +114,38 @@ type listDTO struct {
 }
 
 type storeDTO struct {
-	Machine string `json:"machine"`
-	State   string `json:"state"`
-	Error   string `json:"error,omitempty"`
+	State string `json:"state"`
+	Error string `json:"error,omitempty"`
 }
 
 type detailDTO struct {
 	secretDTO
-	Created  string     `json:"created,omitempty"`
-	Modified string     `json:"modified,omitempty"`
-	Stores   []storeDTO `json:"stores"`
+	Created  string   `json:"created,omitempty"`
+	Modified string   `json:"modified,omitempty"`
+	Store    storeDTO `json:"store"`
 }
 
 type outcomeDTO struct {
-	Name    string     `json:"name"`
-	Action  string     `json:"action"`
-	Stores  []storeDTO `json:"stores"`
-	Warning string     `json:"warning,omitempty"`
+	Name    string   `json:"name"`
+	Action  string   `json:"action"`
+	Store   storeDTO `json:"store"`
+	Warning string   `json:"warning,omitempty"`
 }
 
 func toSecretDTO(s app.SecretStatus) secretDTO {
-	machines := make([]string, 0, len(s.Spec.Machines))
-	for _, r := range s.Spec.Machines {
-		machines = append(machines, r.String())
+	zones := make([]string, 0, len(s.Spec.Zones))
+	for _, r := range s.Spec.Zones {
+		zones = append(zones, r.String())
 	}
-	return secretDTO{Name: s.Spec.Name, Source: s.Source.String(), Machines: machines, State: stateWord(s.Set)}
+	return secretDTO{Name: s.Spec.Name, Source: s.Source.String(), Zones: zones, State: stateWord(s.Set)}
 }
 
-func toStoreDTOs(stores []app.StoreOutcome) []storeDTO {
-	out := make([]storeDTO, 0, len(stores))
-	for _, s := range stores {
-		dto := storeDTO{Machine: s.Role.String(), State: string(s.State)}
-		if s.Err != nil {
-			dto.Error = s.Err.Error()
-		}
-		out = append(out, dto)
+func toStoreDTO(s app.StoreOutcome) storeDTO {
+	dto := storeDTO{State: string(s.State)}
+	if s.Err != nil {
+		dto.Error = s.Err.Error()
 	}
-	return out
+	return dto
 }
 
 func encode(w io.Writer, v any) error {
@@ -179,7 +163,7 @@ func renderListJSON(w io.Writer, rows []app.SecretStatus) error {
 }
 
 func renderDetailJSON(w io.Writer, d app.SecretDetail) error {
-	dto := detailDTO{secretDTO: toSecretDTO(d.SecretStatus), Stores: toStoreDTOs(d.Stores)}
+	dto := detailDTO{secretDTO: toSecretDTO(d.SecretStatus), Store: toStoreDTO(d.Store)}
 	if d.Set {
 		dto.Created = d.Created.UTC().Format(time.RFC3339)
 		dto.Modified = d.Modified.UTC().Format(time.RFC3339)
@@ -188,5 +172,5 @@ func renderDetailJSON(w io.Writer, d app.SecretDetail) error {
 }
 
 func renderOutcomeJSON(w io.Writer, verb string, o app.Outcome) error {
-	return encode(w, outcomeDTO{Name: o.Name, Action: verb, Stores: toStoreDTOs(o.Stores), Warning: o.Warning})
+	return encode(w, outcomeDTO{Name: o.Name, Action: verb, Store: toStoreDTO(o.Store), Warning: o.Warning})
 }

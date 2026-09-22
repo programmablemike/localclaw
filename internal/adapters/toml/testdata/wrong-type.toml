@@ -1,8 +1,10 @@
-schema = 1
+schema = 2
 provider = "libkrun"
 
-[machines.infra]
-cpus = "two"
-memory-mib = 1024
-disk-gib = 10
+[machine]
+cpus = "four"
+memory-mib = 8192
+disk-gib = 60
+
+[zones.infra]
 workloads = []

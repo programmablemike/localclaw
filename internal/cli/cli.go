@@ -33,6 +33,7 @@ type BuildInfo struct {
 // root.
 type Deps struct {
 	Doctor     DoctorRunner
+	Lifecycle  LifecycleRunner
 	Init       InitRunner
 	Secrets    SecretsRunner
 	Build      BuildInfo
@@ -49,7 +50,7 @@ type Deps struct {
 func New(d Deps) *ucli.Command {
 	return &ucli.Command{
 		Name:                  "lclaw",
-		Usage:                 "manage LocalClaw's Podman machines",
+		Usage:                 "manage LocalClaw's Podman machine and its zones",
 		HideVersion:           true,
 		HideHelpCommand:       true,
 		EnableShellCompletion: true,
@@ -93,6 +94,9 @@ func New(d Deps) *ucli.Command {
 		// Run returns the error and the composition root keeps control.
 		ExitErrHandler: func(context.Context, *ucli.Command, error) {},
 		Commands: []*ucli.Command{
+			upCommand(d),
+			downCommand(d),
+			statusCommand(d),
 			doctorCommand(d),
 			secretsCommand(d),
 			initCommand(d),

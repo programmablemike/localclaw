@@ -14,17 +14,11 @@ related:
 
 # Secrets reference
 
-`lclaw secrets` manages the items in LocalClaw's keychain and the Podman
-secret store of every running machine. This page describes the catalogue,
-the keychain, the configuration keys, the commands and their output. The
-reasoning is in [Secrets management](../explanation/secrets-management.md).
-
-> **Changing.** The "machines" column, the per-machine stores and the
-> `machines.<role>.secrets` keys reflect the current three-machine
-> scaffold. [Single machine](../explanation/single-machine.md) replaces
-> them with one store and `zones.<role>.secrets`; the commands' behaviour
-> is otherwise unchanged. This page is updated when the
-> [lifecycle commands](../explanation/lifecycle-commands.md) land.
+`lclaw secrets` manages the items in LocalClaw's keychain and, when the
+machine is running, its Podman secret store. This page describes the
+catalogue, the keychain, the configuration keys, the commands and their
+output. The reasoning is in
+[Secrets management](../explanation/secrets-management.md).
 
 ## Catalogue
 
@@ -33,7 +27,7 @@ Every secret lclaw knows about is either built in or declared in
 
 ### Built-in entries
 
-| Name                     | Default source | Machines   | Generated value                       | Rotatable |
+| Name                     | Default source | Zones      | Generated value                       | Rotatable |
 | ------------------------ | -------------- | ---------- | ------------------------------------- | --------- |
 | `litellm-master-key`     | `generated`    | `services` | `sk-` plus 32 random bytes, base64url | yes       |
 | `litellm-salt-key`       | `generated`    | `services` | 32 random bytes, hexadecimal          | no        |
@@ -42,12 +36,14 @@ Every secret lclaw knows about is either built in or declared in
 | `openclaw-litellm-key`   | `minted`       | `agent`    | whatever LiteLLM returns              | yes       |
 
 base64url is the RFC 4648 URL alphabet without padding, 43 characters for
-32 bytes. Minting is not available until the lifecycle commands land:
-`update --generate` on a minted entry that is already set exits 2 with
-`minting needs the services machine up, which the lifecycle commands will
-provide`, and an `up` that needs one reports a failed check named after the
-secret, summarised `not minted: <that text>`, hinting to bring the
-`services` machine up first.
+32 bytes. Minting needs LiteLLM running: `lclaw up` mints the key after the
+`services` zone is ready, and `update --generate` on a minted entry asks
+the running LiteLLM for a new one. When LiteLLM is not running, `update
+--generate` exits 2 with `minting needs the services zone up; run `lclaw
+up services` first`, and an `up` of the `agent` zone alone reports a
+failed check named after the secret, summarised `not minted: <that text>`,
+with the same hint. The minting mechanism is described in
+[Lifecycle commands](../explanation/lifecycle-commands.md#minting-the-agents-key).
 
 ### Sources
 
@@ -64,9 +60,9 @@ of the three strings reads back as `user`.
 
 ### Declared entries
 
-Declared entries have source `user`. They are listed per machine in
-`lclaw.toml` (see below). A name listed under two machines is one entry
-received by both.
+Declared entries have source `user`. They are listed per zone in
+`lclaw.toml` (see below). A name listed under two zones is one entry
+consumed by both.
 
 ### Names and values
 
@@ -86,20 +82,20 @@ exits 1:
 
 | Finding                        | Check name                |
 | ------------------------------ | ------------------------- |
-| Malformed name                 | `machines.<role>.secrets` |
-| Name collides with a built-in  | `machines.<role>.secrets` |
-| Name listed twice under a role | `machines.<role>.secrets` |
+| Malformed name                 | `zones.<role>.secrets` |
+| Name collides with a built-in  | `zones.<role>.secrets` |
+| Name listed twice under a role | `zones.<role>.secrets` |
 
 ```text
-FAIL  machines.services.secrets  "Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters
+FAIL  zones.services.secrets  "Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters
 
 0 passed, 0 warnings, 1 failed
 ```
 
-The whole message is the summary; there is no hint line. A machine name
+The whole message is the summary; there is no hint line. A zone name
 that is not a role is not one of these findings: `doctor` reports it once
-as a `topology` finding named `machines.<name>`, and the `secrets`
-commands ignore that table's `secrets` list.
+as a `topology` finding named `zones.<name>`, and the `secrets` commands
+ignore that table's `secrets` list.
 
 ## Keychain
 
@@ -146,28 +142,27 @@ operation once.
 
 ## Configuration
 
-The keys that declare secrets, `[keychain] path` and each machine's
+The keys that declare secrets, `[keychain] path` and each zone's
 `secrets` list, are part of the topology file and are documented in the
 [scaffold reference](scaffold.md#lclawtoml). A declared name must satisfy
 the name rule above, must not collide with a built-in entry, and must not
-appear twice under one machine; `lclaw doctor` reports each of these as a
-`topology` check whose summary is `machines.<role>.secrets: <message>`.
+appear twice under one zone; `lclaw doctor` reports each of these as a
+`topology` check whose summary is `zones.<role>.secrets: <message>`.
 
 ## Commands
 
 Every subcommand honours the global `--dir` and `--output` flags described
 in the [command reference](cli.md). None prints a value except `get`.
-Commands that change a secret write the keychain and then, for every
-machine that uses the secret and is running, that machine's Podman secret
-store; they never apply pods.
+Commands that change a secret write the keychain and then, when the
+machine is running, its Podman secret store; they never apply pods.
 
 | Command                                               | Effect                                                                                                   |
 | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `secrets list`                                        | One row per catalogue entry: name, source, machines, state. Stores are not inspected                     |
-| `secrets describe NAME`                               | Name, source, machines, state, timestamps, and one store state per machine                               |
+| `secrets list`                                        | One row per catalogue entry: name, source, zones, state. The store is not inspected                      |
+| `secrets describe NAME`                               | Name, source, zones, state, timestamps, and the store's state                                            |
 | `secrets set NAME [--from-file PATH]`                 | Create the secret with source `user`                                                                     |
 | `secrets update NAME [--from-file PATH] [--generate]` | Replace an existing secret; `--generate` re-runs the generator or minter and restores the default source |
-| `secrets delete NAME`                                 | Remove the item from the keychain and from every running machine's store                                 |
+| `secrets delete NAME`                                 | Remove the item from the keychain and from the machine's store when it is running                        |
 | `secrets get NAME`                                    | Write the value to standard output, raw, with no trailing newline, regardless of `--output`              |
 
 `lclaw secrets` with no subcommand prints the subcommand help.
@@ -198,10 +193,10 @@ standard input at all, otherwise as `invalid secret value: empty`.
 | Empty value or over 1024 bytes                          | 2    | `invalid secret value`                                                        |
 | `--generate` on a declared entry                        | 2    | `secret cannot be generated: "NAME" is user-supplied and has nothing to generate` |
 | `--generate` on an entry that may not be rotated        | 2    | `secret cannot be generated: "NAME" may not be rotated`                       |
-| `--generate` on a minted entry                          | 2    | `minting needs the services machine up, which the lifecycle commands will provide` |
+| `--generate` on a minted entry while LiteLLM is not running | 2 | `minting needs the services zone up; run `lclaw up services` first`          |
 | `--generate` combined with `--from-file`                | 2    | usage error                                                                   |
 | Keychain file missing                                   | 1    | `keychain not found`, hint to run `lclaw init`                                |
-| A machine's store failed                                | 1    | reported in the outcome; the keychain write stands                            |
+| The machine's store failed                              | 1    | reported in the outcome; the keychain write stands                            |
 | `lclaw.toml` has catalogue findings                     | 1    | one `FAIL` line per finding                                                   |
 
 Checks happen in a fixed order. Flag combinations are rejected first, then
@@ -222,7 +217,7 @@ Columns are padded to their widest cell, two spaces apart. State is `set`,
 or `unset` followed by what the next `up` does.
 
 ```text
-NAME                    SOURCE     MACHINES  STATE
+NAME                    SOURCE     ZONES     STATE
 anthropic-api-key       user       services  set
 litellm-db-password     generated  services  unset (generated on next up)
 litellm-master-key      generated  services  set
@@ -232,20 +227,19 @@ openclaw-litellm-key    minted     agent     unset (minted on next up)
 ```
 
 An unset declared entry shows ``unset (run `lclaw secrets set NAME`)``. A
-secret used by more than one machine shows them comma-separated, without a
-space: `services,agent`.
+secret consumed by more than one zone shows them comma-separated, without
+a space: `services,agent`.
 
 ### `describe`
 
 ```text
 name:      litellm-master-key
 source:    generated
-machines:  services
+zones:     services
 state:     set
 created:   2026-09-21T07:03:45Z
 modified:  2026-09-21T07:03:45Z
-stores:
-  services  stored
+store:     stored
 ```
 
 `created` and `modified` appear only when the secret is set.
@@ -254,18 +248,18 @@ stores:
 
 ```text
 updated litellm-master-key
-  services  stored
+  store  stored
 pods pick the new value up on the next `lclaw up`
 ```
 
-The verb is `set`, `updated` or `deleted`, followed by one line per machine
-that uses the secret. The closing line appears only after `updated`, and
-only when at least one machine's store was written. A `failed` store is
-followed by its error on the same line, after a colon:
+The verb is `set`, `updated` or `deleted`, followed by one `store` line.
+The closing line appears only after `updated`, and only when the store was
+written. A `failed` store is followed by its error on the same line, after
+a colon:
 
 ```text
 set anthropic-api-key
-  services  failed: podman: store secret anthropic-api-key: exit status 125
+  store  failed: podman: store secret anthropic-api-key: exit status 125
 ```
 
 ### Store states
@@ -283,7 +277,7 @@ set anthropic-api-key
 One document per command, indented two spaces. Source, state and
 store-state strings are lowercase and part of the interface. `state` is
 `set` or `unset`, without the parenthetical the text output adds. The
-`secrets` and `stores` arrays are always present, never null.
+`secrets` array and the `store` object are always present, never null.
 
 ### `list`
 
@@ -293,7 +287,7 @@ store-state strings are lowercase and part of the interface. `state` is
     {
       "name": "anthropic-api-key",
       "source": "user",
-      "machines": [
+      "zones": [
         "services"
       ],
       "state": "set"
@@ -301,7 +295,7 @@ store-state strings are lowercase and part of the interface. `state` is
     {
       "name": "litellm-salt-key",
       "source": "generated",
-      "machines": [
+      "zones": [
         "services"
       ],
       "state": "unset"
@@ -318,18 +312,15 @@ store-state strings are lowercase and part of the interface. `state` is
 {
   "name": "litellm-master-key",
   "source": "generated",
-  "machines": [
+  "zones": [
     "services"
   ],
   "state": "set",
   "created": "2026-09-21T07:03:45Z",
   "modified": "2026-09-21T07:03:45Z",
-  "stores": [
-    {
-      "machine": "services",
-      "state": "stored"
-    }
-  ]
+  "store": {
+    "state": "stored"
+  }
 }
 ```
 
@@ -342,21 +333,18 @@ store and `warning` when `delete` removed an entry that may not be rotated.
 {
   "name": "litellm-master-key",
   "action": "updated",
-  "stores": [
-    {
-      "machine": "services",
-      "state": "stored"
-    }
-  ]
+  "store": {
+    "state": "stored"
+  }
 }
 ```
 
 ## Podman secret shape
 
-Each value is stored on a machine with
+Each value is stored on the machine with
 
 ```text
-podman --connection lclaw-<role> secret create --replace --label app.kubernetes.io/part-of=localclaw NAME -
+podman --connection lclaw secret create --replace --label app.kubernetes.io/part-of=localclaw NAME -
 ```
 
 and the following document on standard input, `data.value` being the value
@@ -369,9 +357,10 @@ in standard base64:
 A pod file consumes the secret as an environment variable through
 `secretKeyRef` with `key: value`, or as a file through a secret volume.
 `kube play` turns a secret volume into a named volume with the secret's
-name, so secret names and volume claim names share one namespace on a
-machine. Removal on `down` lists secrets carrying the label above, removes
-each one, and removes the named volume of the same name if it exists.
+name, so secret names and volume claim names share one namespace on the
+machine. A full `lclaw down` lists secrets carrying the label above,
+removes each one, and removes the named volume of the same name if it
+exists.
 
 ## Exit codes
 

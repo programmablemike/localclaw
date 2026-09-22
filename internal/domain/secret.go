@@ -81,21 +81,21 @@ func (g Generator) Generate(random io.Reader) ([]byte, error) {
 }
 
 // SecretSpec is one catalogue entry: what the secret is called, how it comes
-// to exist by default, which machines receive it, and whether it may be
+// to exist by default, which zones consume it, and whether it may be
 // rotated. The salt key may not, because LiteLLM's stored credentials are
 // encrypted with it.
 type SecretSpec struct {
 	Name      string
 	Source    Source
-	Machines  []Role
+	Zones     []Role
 	Generator Generator
 	Rotatable bool
 }
 
-// UsedBy reports whether the machine with role r receives the secret.
+// UsedBy reports whether the zone with role r consumes the secret.
 func (s SecretSpec) UsedBy(r Role) bool {
-	for _, m := range s.Machines {
-		if m == r {
+	for _, z := range s.Zones {
+		if z == r {
 			return true
 		}
 	}
@@ -156,10 +156,10 @@ func ValidateValue(v []byte) error {
 // defines. It returns fresh slices so callers may append to them.
 func BuiltinSecrets() []SecretSpec {
 	return []SecretSpec{
-		{Name: "litellm-master-key", Source: Generated, Machines: []Role{Services}, Generator: Generator{Prefix: "sk-", Bytes: 32}, Rotatable: true},
-		{Name: "litellm-salt-key", Source: Generated, Machines: []Role{Services}, Generator: Generator{Bytes: 32, Encoding: Hex}, Rotatable: false},
-		{Name: "litellm-db-password", Source: Generated, Machines: []Role{Services}, Generator: Generator{Bytes: 32}, Rotatable: true},
-		{Name: "openclaw-gateway-token", Source: Generated, Machines: []Role{Agent}, Generator: Generator{Bytes: 32}, Rotatable: true},
-		{Name: "openclaw-litellm-key", Source: Minted, Machines: []Role{Agent}, Rotatable: true},
+		{Name: "litellm-master-key", Source: Generated, Zones: []Role{Services}, Generator: Generator{Prefix: "sk-", Bytes: 32}, Rotatable: true},
+		{Name: "litellm-salt-key", Source: Generated, Zones: []Role{Services}, Generator: Generator{Bytes: 32, Encoding: Hex}, Rotatable: false},
+		{Name: "litellm-db-password", Source: Generated, Zones: []Role{Services}, Generator: Generator{Bytes: 32}, Rotatable: true},
+		{Name: "openclaw-gateway-token", Source: Generated, Zones: []Role{Agent}, Generator: Generator{Bytes: 32}, Rotatable: true},
+		{Name: "openclaw-litellm-key", Source: Minted, Zones: []Role{Agent}, Rotatable: true},
 	}
 }

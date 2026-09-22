@@ -1,28 +1,25 @@
 ---
 title: "Apply a deployment by hand"
-description: "Create, start and load one LocalClaw machine from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough."
+description: "Create, start and load the LocalClaw machine and one zone from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough."
 diataxis: how-to
 status: stable
 last_reviewed: 2026-09-22
-tags: [podman, machine, kube-play, scaffold, troubleshooting]
+tags: [podman, machine, network, kube-play, scaffold, troubleshooting]
 related:
+  - bring-the-system-up-and-down.md
   - ../reference/scaffold.md
   - ../reference/cli.md
   - ../explanation/deployment-model.md
+  - ../explanation/single-machine.md
 ---
 
 # Apply a deployment by hand
 
-When you finish, one LocalClaw machine exists, is running, and every
-workload listed for it in `lclaw.toml` is built and playing, all done with
-`podman` commands you can rerun one at a time.
-
-> **Changing.** These steps follow the current `schema = 1` scaffold, one
-> machine per role. [Single machine](../explanation/single-machine.md)
-> replaces that with a single machine named `lclaw` and one network per
-> zone; the guide is rewritten for that shape, with the network and bridge
-> steps, when the [lifecycle commands](../explanation/lifecycle-commands.md)
-> land. Until then the steps here still work for one machine at a time.
+When you finish, the LocalClaw machine exists and is running, one zone's
+network exists, and every workload listed for that zone in `lclaw.toml` is
+built and playing on it, all done with `podman` commands you can rerun one
+at a time. This is what `lclaw up` does; use it to see each step's own
+output when `up` reports a failure.
 
 ## Prerequisites
 
@@ -30,8 +27,8 @@ workload listed for it in `lclaw.toml` is built and playing, all done with
 - A scaffold directory written by `lclaw init`; this guide assumes
   `~/.config/lclaw`. The [scaffold reference](../reference/scaffold.md)
   describes every file.
-- The role you are applying, one of `infra`, `services` or `agent`. The
-  steps use `agent`; substitute the role and its sizes from `lclaw.toml`.
+- The zone you are applying, one of `infra`, `services` or `agent`. The
+  steps use `agent`; substitute the zone and its lists from `lclaw.toml`.
 
 ## Steps
 
@@ -47,70 +44,93 @@ Use the `provider` value from `lclaw.toml`.
 ### 2. Create the machine if it does not exist
 
 ```bash
-podman machine inspect lclaw-agent >/dev/null 2>&1 || podman machine init lclaw-agent \
-  --cpus 2 --memory 4096 --disk-size 30 \
+podman machine inspect lclaw >/dev/null 2>&1 || podman machine init lclaw \
+  --cpus 4 --memory 8192 --disk-size 60 \
   --volume "" \
-  --playbook machines/agent/playbook.yaml
+  --playbook machine/playbook.yaml
 ```
 
-The numbers are `cpus`, `memory-mib` and `disk-gib` from the machine's
-table. `--volume ""` creates the machine with no host directory mounted; if
-the table has a `volumes` list, pass one `--volume host:guest` per entry
-instead of the empty one.
+The numbers are `cpus`, `memory-mib` and `disk-gib` from the `[machine]`
+table. `--volume ""` creates the machine with no host directory mounted;
+if the table has a `volumes` list, pass one `--volume host:guest` per
+entry instead of the empty one.
 
 ### 3. Start the machine
 
 ```bash
-podman machine start lclaw-agent
+podman machine list --format '{{.Name}} {{.Running}}' | grep -q '^lclaw true$' || podman machine start lclaw
 ```
 
-A machine that is already running is fine; the command says so and exits 0.
+Podman refuses to start a machine that is already running, which is why
+the state is checked first.
 
-### 4. Create the secrets the workloads reference
+### 4. Create the zone's network
+
+```bash
+podman --connection lclaw network exists lclaw-agent || podman --connection lclaw network create --internal lclaw-agent
+```
+
+Pass `--internal` only for a zone whose table says `internal = true`. A
+pod that bridges into this zone also needs the zone's own network to
+exist, so create a bridged zone's network before playing the bridging pod.
+
+### 5. Create the secrets the workloads reference
 
 Each Pod file names its secrets; the [scaffold reference](../reference/scaffold.md#default-secrets)
 lists them. Create each one from a Kubernetes `Secret` document fed on
-standard input so no value lands in a file:
+standard input so no value lands in a file, with the label `lclaw down`
+purges by:
 
 ```bash
-printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: openclaw-gateway-token\nstringData:\n  value: %s\n' "$(openssl rand -hex 32)" \
-  | podman --connection lclaw-agent kube play -
+printf '{"apiVersion":"v1","kind":"Secret","metadata":{"name":"openclaw-gateway-token"},"type":"Opaque","data":{"value":"%s"}}' \
+  "$(openssl rand -hex 32 | tr -d '\n' | base64)" \
+  | podman --connection lclaw secret create --replace --label app.kubernetes.io/part-of=localclaw openclaw-gateway-token -
 ```
 
-Repeat for every secret the machine's workloads reference.
+Repeat for every secret the zone's workloads reference. To use the value
+lclaw holds instead of a fresh one, pipe `lclaw secrets get NAME | base64`
+into the `data.value` field.
 
-### 5. Build and play each workload, in the order listed
+### 6. Build and play each workload, in the order listed
 
-For each name in the machine's `workloads` list:
+For each name in the zone's `workloads` list:
 
 ```bash
-podman --connection lclaw-agent build --tag localhost/lclaw/openclaw:latest workloads/openclaw
-podman --connection lclaw-agent kube play --replace workloads/openclaw/pod.yaml
+podman --connection lclaw build --tag localhost/lclaw/openclaw:latest workloads/openclaw
+podman --connection lclaw kube play --replace --network lclaw-agent --userns auto workloads/openclaw/pod.yaml
 ```
 
+Give one `--network` for the zone's own network and one more for each
+zone the workload's `bridges` entry names, in that order; for example
+`agentgateway` in the default file takes `--network lclaw-services
+--network lclaw-agent`. Pass `--userns auto` only for an internal zone.
 `build` is cached by layer and `--replace` recreates a pod that already
 exists, so rerunning both is how you apply an edit.
 
 ## Verify
 
 ```bash
-podman --connection lclaw-agent pod ps --filter label=app.kubernetes.io/part-of=localclaw
+podman --connection lclaw pod ps --filter label=app.kubernetes.io/part-of=localclaw
 ```
 
-Expected: one row per workload with status `Running`.
+Expected: one row per workload with status `Running`. `lclaw status`
+reports the same from the topology's point of view.
 
 ## Tear down
 
-Stop the workloads in reverse order, then the machine. Named volumes
-survive:
+Stop the workloads in reverse order, remove the network, and, once no
+LocalClaw pod remains on the machine, purge the secrets and stop the
+machine. Named volumes survive:
 
 ```bash
-podman --connection lclaw-agent kube down workloads/openclaw/pod.yaml
-podman machine stop lclaw-agent
+podman --connection lclaw kube down workloads/openclaw/pod.yaml
+podman --connection lclaw network rm lclaw-agent
+podman --connection lclaw secret ls --quiet | xargs -n1 podman --connection lclaw secret inspect --format '{{.Spec.Name}} {{index .Spec.Labels "app.kubernetes.io/part-of"}}' | awk '$2 == "localclaw" { print $1 }' | xargs -n1 podman --connection lclaw secret rm
+podman machine stop lclaw
 ```
 
 To remove the machine and everything on its disk:
 
 ```bash
-podman machine rm --force lclaw-agent
+podman machine rm --force lclaw
 ```

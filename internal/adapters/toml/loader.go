@@ -20,12 +20,16 @@ import (
 type Loader struct{}
 
 // file mirrors the lclaw.toml schema. The struct tags are the schema:
-// anything the decoder cannot place is reported as an unknown key.
+// anything the decoder cannot place is reported as an unknown key. The
+// schema 1 tables are kept as a field so a schema 1 file decodes and is
+// reported by validation with a hint, rather than as unknown keys.
 type file struct {
 	Schema   int                `toml:"schema"`
 	Provider string             `toml:"provider"`
 	Keychain keychain           `toml:"keychain"`
-	Machines map[string]machine `toml:"machines"`
+	Machine  machine            `toml:"machine"`
+	Zones    map[string]zone    `toml:"zones"`
+	Machines map[string]machine `toml:"machines"` // schema 1; ignored
 }
 
 // keychain is the [keychain] table. An absent table means the default.
@@ -37,12 +41,19 @@ type machine struct {
 	CPUs      int      `toml:"cpus"`
 	MemoryMiB int      `toml:"memory-mib"`
 	DiskGiB   int      `toml:"disk-gib"`
-	Workloads []string `toml:"workloads"`
-	Secrets   []string `toml:"secrets"`
 	Volumes   []string `toml:"volumes"`
+	Workloads []string `toml:"workloads"` // schema 1; ignored
+	Secrets   []string `toml:"secrets"`   // schema 1; ignored
 }
 
-// Load reads domain.TopologyFile from the root of scaffold. Machines come
+type zone struct {
+	Internal  bool                `toml:"internal"`
+	Workloads []string            `toml:"workloads"`
+	Secrets   []string            `toml:"secrets"`
+	Bridges   map[string][]string `toml:"bridges"`
+}
+
+// Load reads domain.TopologyFile from the root of scaffold. Zones come
 // out in role order, then any other names alphabetically, so validation
 // findings are stable.
 func (Loader) Load(scaffold fs.FS) (domain.Topology, error) {
@@ -66,14 +77,23 @@ func (Loader) Load(scaffold fs.FS) (domain.Topology, error) {
 }
 
 func toDomain(f file) (domain.Topology, error) {
-	t := domain.Topology{Schema: f.Schema, Provider: f.Provider}
+	t := domain.Topology{
+		Schema:   f.Schema,
+		Provider: f.Provider,
+		Machine: domain.MachineSpec{
+			CPUs:      f.Machine.CPUs,
+			MemoryMiB: f.Machine.MemoryMiB,
+			DiskGiB:   f.Machine.DiskGiB,
+			Volumes:   f.Machine.Volumes,
+		},
+	}
 	path, err := keychainPath(f.Keychain.Path)
 	if err != nil {
 		return domain.Topology{}, err
 	}
 	t.KeychainPath = path
-	names := make([]string, 0, len(f.Machines))
-	for name := range f.Machines {
+	names := make([]string, 0, len(f.Zones))
+	for name := range f.Zones {
 		names = append(names, name)
 	}
 	sort.Slice(names, func(i, j int) bool {
@@ -84,12 +104,18 @@ func toDomain(f file) (domain.Topology, error) {
 		return names[i] < names[j]
 	})
 	for _, name := range names {
-		m := f.Machines[name]
-		spec := domain.MachineSpec{Name: name, CPUs: m.CPUs, MemoryMiB: m.MemoryMiB, DiskGiB: m.DiskGiB, Secrets: m.Secrets, Volumes: m.Volumes}
-		for _, w := range m.Workloads {
+		z := f.Zones[name]
+		spec := domain.ZoneSpec{Name: name, Internal: z.Internal, Secrets: z.Secrets}
+		for _, w := range z.Workloads {
 			spec.Workloads = append(spec.Workloads, domain.Workload(w))
 		}
-		t.Machines = append(t.Machines, spec)
+		if len(z.Bridges) > 0 {
+			spec.Bridges = make(map[domain.Workload][]string, len(z.Bridges))
+			for w, targets := range z.Bridges {
+				spec.Bridges[domain.Workload(w)] = targets
+			}
+		}
+		t.Zones = append(t.Zones, spec)
 	}
 	return t, nil
 }

@@ -3,7 +3,6 @@ PASS  network/infra        created
 PASS  network/services     created
 PASS  network/agent        created (internal)
 PASS  infra/secrets        0 injected
-PASS  infra/wireguard      built and playing
 PASS  infra/kuma-cp        built and playing
 PASS  infra/gateway        built and playing
 PASS  services/secrets     4 injected
@@ -12,4 +11,4 @@ FAIL  services/litellm     podman: build localhost/lclaw/litellm:latest: exit st
 WARN  agent                skipped because services/litellm failed
       hint: fix it, then run `lclaw up` again
 
-10 passed, 1 warnings, 1 failed
+9 passed, 1 warnings, 1 failed

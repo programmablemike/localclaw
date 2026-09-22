@@ -55,7 +55,7 @@ it can reach it.
 
 | Zone       | Network          | Default workloads                       | Default bridges                          | Internal |
 | ---------- | ---------------- | --------------------------------------- | ---------------------------------------- | -------- |
-| `infra`    | `lclaw-infra`    | `wireguard`, `kuma-cp`, `gateway`       | `kuma-cp` joins `services` and `agent`   | no       |
+| `infra`    | `lclaw-infra`    | `kuma-cp`, `gateway`                    | `kuma-cp` joins `services` and `agent`   | no       |
 | `services` | `lclaw-services` | `litellm-db`, `litellm`, `agentgateway` | `agentgateway` joins `agent`             | no       |
 | `agent`    | `lclaw-agent`    | `openclaw`                              |                                          | yes      |
 
@@ -140,7 +140,7 @@ memory-mib = 8192
 disk-gib = 60
 
 [zones.infra]
-workloads = ["wireguard", "kuma-cp", "gateway"]
+workloads = ["kuma-cp", "gateway"]
 bridges = { kuma-cp = ["services", "agent"] }
 
 [zones.services]
@@ -169,7 +169,6 @@ Customizations go after the `FROM` line. The default images:
 
 | Zone       | Workload       | Image                                                                     |
 | ---------- | -------------- | -------------------------------------------------------------------------------------------------- |
-| `infra`    | `wireguard`    | `docker.io/linuxserver/wireguard:1.0.20260223-r0-ls122` (provisional)     |
 | `infra`    | `kuma-cp`      | `docker.io/kumahq/kuma-cp:2.14.5` (provisional)                           |
 | `infra`    | `gateway`      | `docker.io/kumahq/kuma-dp:2.14.5` (provisional)                           |
 | `services` | `litellm-db`   | `docker.io/library/postgres:18.6`                                         |
@@ -178,7 +177,7 @@ Customizations go after the `FROM` line. The default images:
 | `agent`    | `openclaw`     | `ghcr.io/openclaw/openclaw:2026.9.5`                                      |
 
 The digests are in the files. Provisional rows are placeholders until the
-network design settles how WireGuard and the gateway run.
+network design settles how the gateway runs.
 
 ## `workloads/<name>/pod.yaml`
 
@@ -207,7 +206,6 @@ to itself.
 
 | Workload       | CPU | Memory |
 | -------------- | --- | ------ |
-| `wireguard`    | 1   | 256Mi  |
 | `kuma-cp`      | 1   | 512Mi  |
 | `gateway`      | 1   | 256Mi  |
 | `litellm-db`   | 1   | 1Gi    |
@@ -219,7 +217,6 @@ to itself.
 
 | Workload       | Container ports | Host port |
 | -------------- | ---------------- | --------- |
-| `wireguard`    | 51820/udp       | 51820     |
 | `kuma-cp`      | 5681, 5678      | 5681      |
 | `gateway`      | 8080            | 8080      |
 | `litellm-db`   | 5432            |           |

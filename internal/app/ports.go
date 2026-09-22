@@ -12,10 +12,43 @@ import (
 	"github.com/programmablemike/localclaw/internal/domain"
 )
 
-// MachineRuntime is what the use cases need from Podman.
+// MachineInit is what creating the machine needs. Provider is passed to
+// Podman as CONTAINERS_MACHINE_PROVIDER; Playbook is the first-boot
+// playbook path on the host; Volumes are "host:guest" mounts, and none
+// means nothing from the host is mounted.
+type MachineInit struct {
+	Name      string
+	Provider  string
+	CPUs      int
+	MemoryMiB int
+	DiskGiB   int
+	Volumes   []string
+	Playbook  string
+}
+
+// MachineRuntime is what the use cases need from Podman about machines.
+// Every call that names a machine also names the provider, because Podman
+// creates and drives machines on the provider the environment selects.
 type MachineRuntime interface {
 	Version(ctx context.Context) (domain.Version, error)
 	ListMachines(ctx context.Context) ([]domain.Machine, error)
+	InitMachine(ctx context.Context, m MachineInit) error
+	StartMachine(ctx context.Context, provider, name string) error
+	StopMachine(ctx context.Context, provider, name string) error
+	RemoveMachine(ctx context.Context, provider, name string) error
+}
+
+// WorkloadRuntime is what the use cases need from Podman inside the
+// machine: networks, images and pods, all through the remote connection.
+// Build's context and Play's and Down's file are host paths.
+type WorkloadRuntime interface {
+	NetworkExists(ctx context.Context, name string) (bool, error)
+	CreateNetwork(ctx context.Context, name string, internal bool) error
+	RemoveNetwork(ctx context.Context, name string) error
+	Build(ctx context.Context, tag, contextDir string) error
+	Play(ctx context.Context, file string, networks []string, userns string) error
+	Down(ctx context.Context, file string) error
+	ListPods(ctx context.Context) ([]domain.Pod, error)
 }
 
 // EnvironmentManager is what the use cases need from Flox.
@@ -66,26 +99,40 @@ type Keychain interface {
 	Delete(ctx context.Context, path, name string) error
 }
 
-// SecretTarget is a machine's Podman secret store. StoreSecret replaces an
-// existing secret of the same name. ListSecrets returns only the secrets
+// SecretTarget is the machine's Podman secret store. StoreSecret replaces
+// an existing secret of the same name. ListSecrets returns only the secrets
 // lclaw created, found by label. RemoveVolume succeeds when no such volume
 // exists.
 type SecretTarget interface {
-	MachineRunning(ctx context.Context, role domain.Role) (bool, error)
-	StoreSecret(ctx context.Context, role domain.Role, name string, value []byte) error
-	SecretExists(ctx context.Context, role domain.Role, name string) (bool, error)
-	RemoveSecret(ctx context.Context, role domain.Role, name string) error
-	ListSecrets(ctx context.Context, role domain.Role) ([]string, error)
-	RemoveVolume(ctx context.Context, role domain.Role, name string) error
+	MachineRunning(ctx context.Context) (bool, error)
+	StoreSecret(ctx context.Context, name string, value []byte) error
+	SecretExists(ctx context.Context, name string) (bool, error)
+	RemoveSecret(ctx context.Context, name string) error
+	ListSecrets(ctx context.Context) ([]string, error)
+	RemoveVolume(ctx context.Context, name string) error
 }
 
 // KeyMinter obtains a secret from a running service and revokes it again.
-// Only the agent's LiteLLM virtual key is minted. The adapter belongs to
-// the lifecycle design; until it lands, UnavailableMinter fills the port.
+// Only the agent's LiteLLM virtual key is minted. Ready blocks until the
+// service can serve or the context ends.
 type KeyMinter interface {
+	Ready(ctx context.Context) error
 	Mint(ctx context.Context, name string) ([]byte, error)
-	Revoke(ctx context.Context, name string) error
+	Revoke(ctx context.Context, name string, value []byte) error
 }
+
+// Progress hears about each lifecycle step as it begins, so the
+// presentation layer can show that something is happening during a boot or
+// a build. Implementations must not block.
+type Progress interface {
+	Step(name, detail string)
+}
+
+// NoProgress discards every step.
+type NoProgress struct{}
+
+// Step implements Progress.
+func (NoProgress) Step(string, string) {}
 
 var (
 	// ErrSecretNotFound is the domain's value, wrapped by the keychain
@@ -104,21 +151,10 @@ var (
 	ErrWrongPassword = errors.New("wrong keychain password")
 	// ErrNotGeneratable is wrapped when --generate is refused.
 	ErrNotGeneratable = errors.New("secret cannot be generated")
-	// ErrMinterUnavailable is what UnavailableMinter returns.
-	ErrMinterUnavailable = errors.New("minting needs the services machine up, which the lifecycle commands will provide")
+	// ErrMinterUnavailable is wrapped when the minter cannot reach LiteLLM,
+	// which means the services zone is not up.
+	ErrMinterUnavailable = errors.New("minting needs the services zone up; run `lclaw up services` first")
 )
-
-// UnavailableMinter fills the KeyMinter port until the lifecycle design
-// lands an adapter that talks to LiteLLM.
-type UnavailableMinter struct{}
-
-// Mint implements KeyMinter.
-func (UnavailableMinter) Mint(context.Context, string) ([]byte, error) {
-	return nil, ErrMinterUnavailable
-}
-
-// Revoke implements KeyMinter.
-func (UnavailableMinter) Revoke(context.Context, string) error { return ErrMinterUnavailable }
 
 // FindingsError carries lclaw.toml findings out of a use case so the
 // presentation layer can render them the way doctor renders its report.
@@ -129,3 +165,18 @@ type FindingsError struct {
 func (e *FindingsError) Error() string {
 	return fmt.Sprintf("%s has %d problem(s)", domain.TopologyFile, len(e.Findings))
 }
+
+// UnavailableMinter fills the KeyMinter port where no LiteLLM can be
+// reached, such as in tests; every call reports ErrMinterUnavailable.
+type UnavailableMinter struct{}
+
+// Ready implements KeyMinter.
+func (UnavailableMinter) Ready(context.Context) error { return ErrMinterUnavailable }
+
+// Mint implements KeyMinter.
+func (UnavailableMinter) Mint(context.Context, string) ([]byte, error) {
+	return nil, ErrMinterUnavailable
+}
+
+// Revoke implements KeyMinter.
+func (UnavailableMinter) Revoke(context.Context, string, []byte) error { return ErrMinterUnavailable }

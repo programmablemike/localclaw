@@ -13,29 +13,6 @@ import (
 	"github.com/programmablemike/localclaw/internal/domain"
 )
 
-type fakeRuntime struct {
-	version  domain.Version
-	verErr   error
-	machines []domain.Machine
-	listErr  error
-	cancelOn string // "version" or "list": cancel the context when that call happens
-	cancel   context.CancelFunc
-}
-
-func (f *fakeRuntime) Version(ctx context.Context) (domain.Version, error) {
-	if f.cancelOn == "version" && f.cancel != nil {
-		f.cancel()
-	}
-	return f.version, f.verErr
-}
-
-func (f *fakeRuntime) ListMachines(ctx context.Context) ([]domain.Machine, error) {
-	if f.cancelOn == "list" && f.cancel != nil {
-		f.cancel()
-	}
-	return f.machines, f.listErr
-}
-
 type fakeEnvs struct {
 	version domain.Version
 	err     error
@@ -49,31 +26,25 @@ func (f *fakeEnvs) Version(ctx context.Context) (domain.Version, error) { return
 const dirArg = "/home/test/.config/lclaw"
 
 var (
-	podman584 = domain.Version{Major: 5, Minor: 8, Patch: 4, Raw: "5.8.4"}
-	flox1131  = domain.Version{Major: 1, Minor: 13, Patch: 1, Raw: "1.13.1-g684cdfb"}
-	allThree  = []domain.Machine{{Name: "lclaw-infra", Running: true}, {Name: "lclaw-services", Running: true}, {Name: "lclaw-agent", Running: false}}
+	podman584      = domain.Version{Major: 5, Minor: 8, Patch: 4, Raw: "5.8.4"}
+	flox1131       = domain.Version{Major: 1, Minor: 13, Patch: 1, Raw: "1.13.1-g684cdfb"}
+	runningMachine = []domain.Machine{{Name: "podman-machine-default"}, {Name: "lclaw", Running: true}}
 
 	floxPass   = domain.Check{Name: "flox", Status: domain.Pass, Summary: "1.13.1 (minimum 1.0.0)"}
 	podmanPass = domain.Check{Name: "podman", Status: domain.Pass, Summary: "5.8.4 (minimum 5.8.0)"}
 )
 
-// defaultTopology mirrors the embedded lclaw.toml.
+// defaultTopology mirrors the embedded lclaw.toml, without the declared
+// provider key.
 func defaultTopology() domain.Topology {
-	return domain.Topology{
-		Schema:       1,
-		Provider:     "libkrun",
-		KeychainPath: kcPath,
-		Machines: []domain.MachineSpec{
-			{Name: "infra", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10, Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}},
-			{Name: "services", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}},
-			{Name: "agent", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []domain.Workload{"openclaw"}},
-		},
-	}
+	top := servicesTopology()
+	top.Zones[1].Secrets = nil
+	return top
 }
 
 // fullScaffold is a file system holding every file the default topology needs.
 func fullScaffold() fstest.MapFS {
-	m := fstest.MapFS{domain.TopologyFile: {Data: []byte("schema = 1\n")}}
+	m := fstest.MapFS{domain.TopologyFile: {Data: []byte("schema = 2\n")}}
 	for _, w := range defaultTopology().Workloads() {
 		for _, f := range w.RequiredFiles() {
 			m[f] = &fstest.MapFile{Data: []byte("x")}
@@ -85,11 +56,12 @@ func fullScaffold() fstest.MapFS {
 // healthy returns a Doctor whose every dependency reports success.
 func healthy() *Doctor {
 	return &Doctor{
-		Runtime:  &fakeRuntime{version: podman584, machines: allThree},
-		Envs:     &fakeEnvs{version: flox1131},
-		Scaffold: &fakeScaffold{fsys: fullScaffold()},
-		Topology: &fakeLoader{topo: defaultTopology()},
-		Keychain: &fakeKeychain{exists: true},
+		Runtime:   &fakeRuntime{version: podman584, machines: runningMachine},
+		Workloads: allNetworks(),
+		Envs:      &fakeEnvs{version: flox1131},
+		Scaffold:  &fakeScaffold{fsys: fullScaffold()},
+		Topology:  &fakeLoader{topo: defaultTopology()},
+		Keychain:  &fakeKeychain{exists: true},
 	}
 }
 
@@ -111,11 +83,12 @@ func TestDoctorAllPass(t *testing.T) {
 		floxPass,
 		podmanPass,
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
-		{Name: "topology", Status: domain.Pass, Summary: "3 machines, 7 workloads"},
+		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 7 workloads"},
 		keychainPass,
-		{Name: "lclaw-infra", Status: domain.Pass, Summary: "running"},
-		{Name: "lclaw-services", Status: domain.Pass, Summary: "running"},
-		{Name: "lclaw-agent", Status: domain.Pass, Summary: "stopped"},
+		{Name: "machine", Status: domain.Pass, Summary: "running"},
+		{Name: "network/infra", Status: domain.Pass, Summary: "present"},
+		{Name: "network/services", Status: domain.Pass, Summary: "present"},
+		{Name: "network/agent", Status: domain.Pass, Summary: "present (internal)"},
 	}}
 	if !reflect.DeepEqual(r, want) {
 		t.Fatalf("Run() =\n%+v\nwant\n%+v", r, want)
@@ -133,7 +106,7 @@ func TestDoctorFloxMissingStillChecksEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}
+	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "machine"}
 	if got := names(r); !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
@@ -156,9 +129,9 @@ func TestDoctorPodmanMissingSkipsMachines(t *testing.T) {
 		floxPass,
 		{Name: "podman", Status: domain.Fail, Summary: "not found", Hint: domain.PodmanRequirement.InstallHint},
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
-		{Name: "topology", Status: domain.Pass, Summary: "3 machines, 7 workloads"},
+		{Name: "topology", Status: domain.Pass, Summary: "1 machine, 3 zones, 7 workloads"},
 		keychainPass,
-		{Name: "machines", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
+		{Name: "machine", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
 	}}
 	if !reflect.DeepEqual(r, want) {
 		t.Fatalf("Run() =\n%+v\nwant\n%+v", r, want)
@@ -172,7 +145,7 @@ func TestDoctorPodmanTooOldSkipsMachines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "machines"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "machine"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 	if r.Checks[1].Status != domain.Fail || r.Checks[1].Summary != "5.7.2 is older than the minimum 5.8.0" {
@@ -188,7 +161,7 @@ func TestDoctorMachineListErrorIsAFailedCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	last := r.Checks[len(r.Checks)-1]
-	want := domain.Check{Name: "machines", Status: domain.Fail, Summary: "podman: list machines: exit status 125: cannot connect"}
+	want := domain.Check{Name: "machine", Status: domain.Fail, Summary: "podman: list machines: exit status 125: cannot connect"}
 	if last != want {
 		t.Fatalf("last check = %+v, want %+v", last, want)
 	}
@@ -211,7 +184,7 @@ func TestDoctorScaffoldMissingIsWarnAndTopologySkipped(t *testing.T) {
 	if r.Worst() != domain.Warn {
 		t.Errorf("Worst() = %v, want Warn: a missing scaffold is not a failure", r.Worst())
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "machine"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 }
@@ -261,7 +234,7 @@ func TestDoctorTopologyDecodeErrorIsFail(t *testing.T) {
 func TestDoctorTopologyFindingsAreEachAFailedCheck(t *testing.T) {
 	d := healthy()
 	top := defaultTopology()
-	top.Machines[0].CPUs = 0
+	top.Machine.CPUs = 0
 	d.Topology = &fakeLoader{topo: top}
 	scaffold := fullScaffold()
 	delete(scaffold, "workloads/openclaw/pod.yaml")
@@ -271,24 +244,25 @@ func TestDoctorTopologyFindingsAreEachAFailedCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []domain.Check{
-		{Name: "topology", Status: domain.Fail, Summary: "machines.infra.cpus: must be positive, got 0"},
-		{Name: "topology", Status: domain.Fail, Summary: "machines.agent.workloads: workloads/openclaw is missing pod.yaml"},
+		{Name: "topology", Status: domain.Fail, Summary: "machine.cpus: must be positive, got 0"},
+		{Name: "topology", Status: domain.Fail, Summary: "zones.agent.workloads: workloads/openclaw is missing pod.yaml"},
 	}
 	if got := r.Checks[3:5]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("topology checks =\n%+v\nwant\n%+v", got, want)
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "topology", "keychain", "machine", "network/infra", "network/services", "network/agent"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 }
 
 func TestDoctorEverythingBrokenIsAllReported(t *testing.T) {
 	d := &Doctor{
-		Runtime:  &fakeRuntime{verErr: fmt.Errorf("podman: version: %w", ErrToolNotFound)},
-		Envs:     &fakeEnvs{err: fmt.Errorf("flox: version: %w", ErrToolNotFound)},
-		Scaffold: &fakeScaffold{err: fmt.Errorf("osfs: open %s: %w", dirArg, fs.ErrNotExist)},
-		Topology: &fakeLoader{},
-		Keychain: &fakeKeychain{},
+		Runtime:   &fakeRuntime{verErr: fmt.Errorf("podman: version: %w", ErrToolNotFound)},
+		Workloads: newFakeWorkloads(),
+		Envs:      &fakeEnvs{err: fmt.Errorf("flox: version: %w", ErrToolNotFound)},
+		Scaffold:  &fakeScaffold{err: fmt.Errorf("osfs: open %s: %w", dirArg, fs.ErrNotExist)},
+		Topology:  &fakeLoader{},
+		Keychain:  &fakeKeychain{},
 	}
 	r, err := d.Run(context.Background(), dirArg)
 	if err != nil {
@@ -307,7 +281,7 @@ func TestDoctorCancelledBetweenSteps(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d := healthy()
-	d.Runtime = &fakeRuntime{version: podman584, machines: allThree, cancelOn: "version", cancel: cancel}
+	d.Runtime = &fakeRuntime{version: podman584, machines: runningMachine, cancelOn: "version", cancel: cancel}
 	r, err := d.Run(ctx, dirArg)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
@@ -322,7 +296,7 @@ func TestDoctorCancelledDuringMachineList(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d := healthy()
-	d.Runtime = &fakeRuntime{version: podman584, machines: allThree, cancelOn: "list", cancel: cancel}
+	d.Runtime = &fakeRuntime{version: podman584, machines: runningMachine, cancelOn: "list", cancel: cancel}
 	r, err := d.Run(ctx, dirArg)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
@@ -345,7 +319,7 @@ func newDoctorWithSecrets(kc *fakeKeychain, topo domain.Topology) *Doctor {
 
 func TestDoctorReportsEveryDeclaredSecret(t *testing.T) {
 	topo := servicesTopology()
-	topo.Machines[1].Secrets = []string{"anthropic-api-key", "openai-api-key"}
+	topo.Zones[1].Secrets = []string{"anthropic-api-key", "openai-api-key"}
 	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{
 		"anthropic-api-key": {value: []byte("k"), source: domain.User},
 	}}
@@ -401,7 +375,7 @@ func TestDoctorKeychainSkippedWhenTheTopologyCannotBeRead(t *testing.T) {
 
 func TestDoctorNoDeclaredSecretsEmitsOnlyTheKeychainCheck(t *testing.T) {
 	topo := servicesTopology()
-	topo.Machines[1].Secrets = nil
+	topo.Zones[1].Secrets = nil
 	r, err := newDoctorWithSecrets(&fakeKeychain{exists: true}, topo).Run(context.Background(), "/d")
 	if err != nil {
 		t.Fatal(err)
@@ -440,8 +414,60 @@ func TestDoctorCheckOrder(t *testing.T) {
 	for _, c := range r.Checks {
 		names = append(names, c.Name)
 	}
-	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "anthropic-api-key", "lclaw-infra", "lclaw-services", "lclaw-agent"}
+	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "anthropic-api-key", "machine", "network/infra", "network/services", "network/agent"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("check order = %v, want %v", names, want)
+	}
+}
+
+// allNetworks is a WorkloadRuntime reporting every zone network present.
+func allNetworks() *fakeWorkloads {
+	w := newFakeWorkloads()
+	for _, r := range domain.Roles() {
+		w.networks[r.NetworkName()] = true
+	}
+	return w
+}
+
+func TestDoctorStoppedMachineSkipsNetworks(t *testing.T) {
+	d := healthy()
+	d.Runtime = &fakeRuntime{version: podman584, machines: []domain.Machine{{Name: "lclaw"}}}
+	r, err := d.Run(context.Background(), dirArg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := r.Checks[len(r.Checks)-1]
+	if want := (domain.Check{Name: "machine", Status: domain.Pass, Summary: "stopped", Hint: "run `lclaw up`"}); last != want {
+		t.Fatalf("last check = %+v, want %+v", last, want)
+	}
+}
+
+func TestDoctorMissingNetworkIsAWarning(t *testing.T) {
+	d := healthy()
+	w := allNetworks()
+	delete(w.networks, "lclaw-agent")
+	d.Workloads = w
+	r, err := d.Run(context.Background(), dirArg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := r.Checks[len(r.Checks)-1]
+	if want := (domain.Check{Name: "network/agent", Status: domain.Warn, Summary: "missing", Hint: "run `lclaw up agent`"}); last != want {
+		t.Fatalf("last check = %+v, want %+v", last, want)
+	}
+}
+
+func TestDoctorNetworkErrorIsAFailedCheck(t *testing.T) {
+	d := healthy()
+	w := allNetworks()
+	w.netErr = errors.New("podman: network exists lclaw-infra: exit status 125: cannot connect")
+	d.Workloads = w
+	r, err := d.Run(context.Background(), dirArg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := r.Checks[len(r.Checks)-1]
+	if last.Name != "networks" || last.Status != domain.Fail {
+		t.Fatalf("last check = %+v, want a failed networks check", last)
 	}
 }

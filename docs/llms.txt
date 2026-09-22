@@ -4,7 +4,7 @@
 
 Contributor and agent rules live in AGENTS.md at the repository root: work in a git worktree, land every change through a pull request, use Conventional Commits, follow Diátaxis for documentation, and version releases with Semantic Versioning. Read it before changing anything.
 
-Paths below are relative to this file. The `lclaw` CLI skeleton and the `doctor`, `init` and `secrets` commands exist; tutorials are still empty. The documentation system itself is fully documented.
+Paths below are relative to this file. The `lclaw` CLI's `up`, `down`, `status`, `doctor`, `init` and `secrets` commands exist; tutorials are still empty. The documentation system itself is fully documented.
 
 ## Start here
 
@@ -21,7 +21,8 @@ Paths below are relative to this file. The `lclaw` CLI skeleton and the `doctor`
 - [How-to guides](how-to/README.md): Index of task-oriented guides. A how-to guide gives a competent reader the steps to accomplish one real goal.
 - [Add a document](how-to/add-a-document.md): Create a page in the right Diátaxis section, fill in the frontmatter, and register it in the indexes so agents can find it.
 - [Set up a development environment](how-to/set-up-a-development-environment.md): Enter the Flox environment, run the check script, build lclaw from source and run doctor against your machine.
-- [Apply a deployment by hand](how-to/apply-a-deployment-by-hand.md): Create, start and load one LocalClaw machine from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough.
+- [Apply a deployment by hand](how-to/apply-a-deployment-by-hand.md): Create, start and load the LocalClaw machine and one zone from the scaffold with plain podman commands, for troubleshooting or when lclaw is not enough.
+- [Bring the system up and down](how-to/bring-the-system-up-and-down.md): Run lclaw up for the first time, apply an edit, check status, take one zone or everything down, and destroy the machine.
 - [Manage secrets](how-to/manage-secrets.md): Create the keychain, set a provider API key, rotate the LiteLLM master key, and read a value to log into the LiteLLM dashboard.
 
 ## Reference

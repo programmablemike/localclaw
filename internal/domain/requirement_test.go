@@ -3,7 +3,6 @@ package domain
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -44,35 +43,6 @@ func TestEvaluateTool(t *testing.T) {
 				t.Fatalf("EvaluateTool() = %+v, want %+v", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestEvaluateMachines(t *testing.T) {
-	found := []Machine{
-		{Name: "lclaw-infra", Running: true},
-		{Name: "podman-machine-default", Running: false},
-		{Name: "lclaw-agent", Running: false},
-	}
-	got := EvaluateMachines(Roles(), found)
-	want := []Check{
-		{Name: "lclaw-infra", Status: Pass, Summary: "running"},
-		{Name: "lclaw-services", Status: Warn, Summary: "not created", Hint: "run `lclaw up` once it is available"},
-		{Name: "lclaw-agent", Status: Pass, Summary: "stopped"},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("EvaluateMachines() =\n%+v\nwant\n%+v", got, want)
-	}
-}
-
-func TestEvaluateMachinesNoneCreated(t *testing.T) {
-	got := EvaluateMachines(Roles(), nil)
-	if len(got) != 3 {
-		t.Fatalf("got %d checks, want 3", len(got))
-	}
-	for _, c := range got {
-		if c.Status != Warn {
-			t.Errorf("%s: status %v, want Warn", c.Name, c.Status)
-		}
 	}
 }
 

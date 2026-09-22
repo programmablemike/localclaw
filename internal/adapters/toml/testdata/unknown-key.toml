@@ -1,22 +1,18 @@
 # Two typos: a top-level key that does not exist and a misspelt machine key.
-schema = 1
+schema = 2
 provider = "libkrun"
 colour = "red"
 
-[machines.infra]
-cpu = 1
-memory-mib = 1024
-disk-gib = 10
+[machine]
+cpu = 4
+memory-mib = 8192
+disk-gib = 60
+
+[zones.infra]
 workloads = []
 
-[machines.services]
-cpus = 2
-memory-mib = 4096
-disk-gib = 30
+[zones.services]
 workloads = []
 
-[machines.agent]
-cpus = 2
-memory-mib = 4096
-disk-gib = 30
+[zones.agent]
 workloads = []

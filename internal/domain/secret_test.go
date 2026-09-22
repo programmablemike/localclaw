@@ -129,8 +129,8 @@ func TestBuiltinSecrets(t *testing.T) {
 		if s.Source != w.source || s.Generator.Prefix != w.prefix || s.Generator.Encoding != w.encoding || s.Rotatable != w.rotatable {
 			t.Errorf("%s = %+v", s.Name, s)
 		}
-		if len(s.Machines) != 1 || s.Machines[0] != w.machines[0] {
-			t.Errorf("%s machines = %v, want %v", s.Name, s.Machines, w.machines)
+		if len(s.Zones) != 1 || s.Zones[0] != w.machines[0] {
+			t.Errorf("%s machines = %v, want %v", s.Name, s.Zones, w.machines)
 		}
 		if s.Source == Generated && s.Generator.Bytes != 32 {
 			t.Errorf("%s generator bytes = %d, want 32", s.Name, s.Generator.Bytes)
@@ -142,8 +142,8 @@ func TestBuiltinSecrets(t *testing.T) {
 }
 
 func TestSecretSpecUsedBy(t *testing.T) {
-	s := SecretSpec{Machines: []Role{Services, Agent}}
+	s := SecretSpec{Zones: []Role{Services, Agent}}
 	if !s.UsedBy(Services) || !s.UsedBy(Agent) || s.UsedBy(Infra) {
-		t.Fatalf("UsedBy wrong for %v", s.Machines)
+		t.Fatalf("UsedBy wrong for %v", s.Zones)
 	}
 }

@@ -2,7 +2,7 @@
   "dir": "/home/test/.config/lclaw",
   "written": [
     "lclaw.toml",
-    "machines/agent/playbook.yaml"
+    "machine/playbook.yaml"
   ],
   "skipped": [
     "workloads/openclaw/pod.yaml"

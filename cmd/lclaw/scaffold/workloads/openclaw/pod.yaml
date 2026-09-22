@@ -1,5 +1,10 @@
 # LocalClaw: OpenClaw agent. State lives in the openclaw-state volume; the
 # gateway token comes from the openclaw-gateway-token secret by name.
+#
+# This is the untrusted workload, and it shares the machine's kernel with
+# the other zones, so the pod carries what its own VM used to provide: every
+# capability dropped, no privilege escalation, and a resource ceiling. lclaw
+# up also plays it with --userns auto because its zone is internal.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -18,6 +23,14 @@ spec:
     - name: openclaw
       image: localhost/lclaw/openclaw:latest
       imagePullPolicy: Never
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
       ports:
         - containerPort: 18789
       env:

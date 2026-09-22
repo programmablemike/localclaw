@@ -54,7 +54,7 @@ func (f *fakeSecrets) Get(ctx context.Context, dir, name string) ([]byte, error)
 }
 
 func spec(name string, src domain.Source, roles ...domain.Role) domain.SecretSpec {
-	return domain.SecretSpec{Name: name, Source: src, Machines: roles}
+	return domain.SecretSpec{Name: name, Source: src, Zones: roles}
 }
 
 var listing = []app.SecretStatus{
@@ -71,15 +71,12 @@ var detail = app.SecretDetail{
 	SecretStatus: app.SecretStatus{Spec: spec("shared-token", domain.User, domain.Services, domain.Agent), Source: domain.User, Set: true},
 	Created:      t0,
 	Modified:     t0.Add(time.Minute),
-	Stores: []app.StoreOutcome{
-		{Role: domain.Services, State: app.StoreStored},
-		{Role: domain.Agent, State: app.StoreStopped},
-	},
+	Store:        app.StoreOutcome{State: app.StoreStored},
 }
 
 var detailUnset = app.SecretDetail{
 	SecretStatus: app.SecretStatus{Spec: spec("litellm-master-key", domain.Generated, domain.Services), Source: domain.Generated},
-	Stores:       []app.StoreOutcome{{Role: domain.Services, State: app.StoreAbsent}},
+	Store:        app.StoreOutcome{State: app.StoreAbsent},
 }
 
 func secretsDeps(f *fakeSecrets) Deps {
@@ -132,7 +129,7 @@ func TestSecretsDescribeUnsetText(t *testing.T) {
 
 func TestSecretsSetFromPipeRemovesOneNewline(t *testing.T) {
 	for in, want := range map[string]string{"sk-ant\n": "sk-ant", "sk-ant\n\n": "sk-ant\n", "sk-ant": "sk-ant", "sk-ant\r\n": "sk-ant"} {
-		f := &fakeSecrets{outcome: app.Outcome{Name: "anthropic-api-key", Stores: []app.StoreOutcome{{Role: domain.Services, State: app.StoreStored}}}}
+		f := &fakeSecrets{outcome: app.Outcome{Name: "anthropic-api-key", Store: app.StoreOutcome{State: app.StoreStored}}}
 		d := secretsDeps(f)
 		d.Stdin = strings.NewReader(in)
 		r := executeDeps(t, d, "secrets", "set", "anthropic-api-key")
@@ -146,7 +143,7 @@ func TestSecretsSetFromPipeRemovesOneNewline(t *testing.T) {
 }
 
 func TestSecretsSetText(t *testing.T) {
-	f := &fakeSecrets{outcome: app.Outcome{Name: "shared-token", Stores: []app.StoreOutcome{{Role: domain.Services, State: app.StoreStored}, {Role: domain.Agent, State: app.StoreStopped}}}}
+	f := &fakeSecrets{outcome: app.Outcome{Name: "shared-token", Store: app.StoreOutcome{State: app.StoreStored}}}
 	d := secretsDeps(f)
 	d.Stdin = strings.NewReader("v\n")
 	r := executeDeps(t, d, "secrets", "set", "shared-token")
@@ -261,7 +258,7 @@ func TestSecretsExitCodes(t *testing.T) {
 }
 
 func TestSecretsUpdateGenerate(t *testing.T) {
-	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-master-key", Stores: []app.StoreOutcome{{Role: domain.Services, State: app.StoreStored}}}}
+	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-master-key", Store: app.StoreOutcome{State: app.StoreStored}}}
 	r := executeDeps(t, secretsDeps(f), "--output", "json", "secrets", "update", "litellm-master-key", "--generate")
 	if r.err != nil {
 		t.Fatal(r.err)
@@ -273,7 +270,7 @@ func TestSecretsUpdateGenerate(t *testing.T) {
 }
 
 func TestSecretsUpdateTextMentionsNextUp(t *testing.T) {
-	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-master-key", Stores: []app.StoreOutcome{{Role: domain.Services, State: app.StoreStored}}}}
+	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-master-key", Store: app.StoreOutcome{State: app.StoreStored}}}
 	d := secretsDeps(f)
 	d.Stdin = strings.NewReader("v")
 	r := executeDeps(t, d, "secrets", "update", "litellm-master-key")
@@ -293,7 +290,7 @@ func TestSecretsUpdateGenerateWithFileIsUsageError(t *testing.T) {
 }
 
 func TestSecretsDeleteWarnsOnStderr(t *testing.T) {
-	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-salt-key", Warning: "litellm-salt-key may not be rotated", Stores: []app.StoreOutcome{{Role: domain.Services, State: app.StoreRemoved}}}}
+	f := &fakeSecrets{outcome: app.Outcome{Name: "litellm-salt-key", Warning: "litellm-salt-key may not be rotated", Store: app.StoreOutcome{State: app.StoreRemoved}}}
 	r := executeDeps(t, secretsDeps(f), "secrets", "delete", "litellm-salt-key")
 	if r.err != nil {
 		t.Fatal(r.err)
@@ -301,18 +298,18 @@ func TestSecretsDeleteWarnsOnStderr(t *testing.T) {
 	if r.stderr.String() != "lclaw: warning: litellm-salt-key may not be rotated\n" {
 		t.Fatalf("stderr = %q", r.stderr.String())
 	}
-	if !strings.Contains(r.stdout.String(), "deleted litellm-salt-key\n  services  removed\n") {
+	if !strings.Contains(r.stdout.String(), "deleted litellm-salt-key\n  store  removed\n") {
 		t.Fatalf("stdout = %q", r.stdout.String())
 	}
 }
 
 func TestSecretsOutcomeFailureExits1(t *testing.T) {
-	f := &fakeSecrets{outcome: app.Outcome{Name: "x", Stores: []app.StoreOutcome{{Role: domain.Agent, State: app.StoreFailed, Err: errors.New("podman: store secret x: exit status 125")}}}}
+	f := &fakeSecrets{outcome: app.Outcome{Name: "x", Store: app.StoreOutcome{State: app.StoreFailed, Err: errors.New("podman: store secret x: exit status 125")}}}
 	r := executeDeps(t, secretsDeps(f), "secrets", "delete", "x")
 	if !errors.Is(r.err, ErrChecksFailed) {
 		t.Fatalf("err = %v, want ErrChecksFailed", r.err)
 	}
-	if !strings.Contains(r.stdout.String(), "agent  failed: podman: store secret x: exit status 125") {
+	if !strings.Contains(r.stdout.String(), "store  failed: podman: store secret x: exit status 125") {
 		t.Fatalf("stdout = %q", r.stdout.String())
 	}
 }
@@ -335,16 +332,16 @@ func TestSecretsFindingsRenderAsReport(t *testing.T) {
 	}{
 		{
 			name:    "plain message",
-			finding: domain.Finding{Where: "machines.services.secrets", Message: `"Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
-			want:    "FAIL  machines.services.secrets  \"Bad\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
+			finding: domain.Finding{Where: "zones.services.secrets", Message: `"Bad" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
+			want:    "FAIL  zones.services.secrets  \"Bad\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
 		},
 		{
 			// A secret name that itself contains "; " must not fool the
 			// renderer into splitting mid-name: the whole message stays on
 			// one line, unsplit.
 			name:    "semicolon inside quoted name",
-			finding: domain.Finding{Where: "machines.services.secrets", Message: `"a; b" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
-			want:    "FAIL  machines.services.secrets  \"a; b\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
+			finding: domain.Finding{Where: "zones.services.secrets", Message: `"a; b" is not a valid secret name; use a lowercase DNS label of at most 63 characters`},
+			want:    "FAIL  zones.services.secrets  \"a; b\" is not a valid secret name; use a lowercase DNS label of at most 63 characters\n\n0 passed, 0 warnings, 1 failed\n",
 		},
 	}
 	for _, tt := range tests {

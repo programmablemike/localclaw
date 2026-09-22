@@ -13,6 +13,10 @@ spec:
     - name: agentgateway
       image: localhost/lclaw/agentgateway:latest
       imagePullPolicy: Never
+      resources:
+        limits:
+          cpu: "1"
+          memory: 512Mi
       ports:
         - containerPort: 3000
         - containerPort: 15000

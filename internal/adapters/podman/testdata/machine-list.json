@@ -18,7 +18,7 @@
         "UserModeNetworking": true
     },
     {
-        "Name": "lclaw-infra",
+        "Name": "lclaw",
         "Default": false,
         "Created": "2026-09-20T10:00:00.000000-07:00",
         "Running": true,
@@ -26,10 +26,10 @@
         "LastUp": "2026-09-20T10:01:00.000000-07:00",
         "Stream": "default",
         "VMType": "libkrun",
-        "CPUs": 1,
-        "Memory": "1073741824",
+        "CPUs": 4,
+        "Memory": "8589934592",
         "Swap": "0",
-        "DiskSize": "10737418240",
+        "DiskSize": "64424509440",
         "Port": 60135,
         "RemoteUsername": "core",
         "IdentityPath": "/Users/mikelee/.local/share/containers/podman/machine/machine",

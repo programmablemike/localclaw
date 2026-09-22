@@ -9,12 +9,11 @@ Run OpenClaw agents in isolated containers on macOS.
 LocalClaw has two goals: isolate the agent from the host machine, and make
 setup and operation easy and reliable. Everything else follows from those two.
 
-> **Status:** pre-alpha. The `lclaw` skeleton, `lclaw doctor`, `lclaw init`
-> and `lclaw secrets` exist; no release has been cut. The rest of this README
-> describes the intended design. The code that exists today still writes the
-> earlier three-machine topology; the lifecycle commands replace it with the
-> shape below. See [Single machine](docs/explanation/single-machine.md) for
-> why.
+> **Status:** pre-alpha. `lclaw up`, `down`, `status`, `doctor`, `init`
+> and `secrets` exist; no release has been cut. The mesh policy between
+> zones is not configured yet. See
+> [Single machine](docs/explanation/single-machine.md) for why there is one
+> machine rather than three.
 
 ## Architecture
 

@@ -76,8 +76,12 @@ func TestScaffoldTopologyIsValid(t *testing.T) {
 	if got := len(top.Workloads()); got != 7 {
 		t.Fatalf("%d workloads, want 7", got)
 	}
-	if got := len(top.Machines); got != 3 {
-		t.Fatalf("%d machines, want 3", got)
+	if got := len(top.Zones); got != 3 {
+		t.Fatalf("%d zones, want 3", got)
+	}
+	agent, _ := top.Zone(domain.Agent)
+	if !agent.Internal {
+		t.Fatal("the agent zone must be internal")
 	}
 }
 
@@ -106,11 +110,9 @@ func TestScaffoldContainerfilesAreOnePinnedFrom(t *testing.T) {
 func TestScaffoldPodFilesKeepTheConventions(t *testing.T) {
 	fsys, top := loadScaffold(t)
 	infra := map[domain.Workload]bool{}
-	for _, m := range top.Machines {
-		if m.Name == domain.Infra.String() {
-			for _, w := range m.Workloads {
-				infra[w] = true
-			}
+	if z, ok := top.Zone(domain.Infra); ok {
+		for _, w := range z.Workloads {
+			infra[w] = true
 		}
 	}
 	for _, w := range top.Workloads() {
@@ -166,15 +168,13 @@ func TestScaffoldContainerignoreExcludesThePodFile(t *testing.T) {
 	}
 }
 
-func TestScaffoldPlaybooksEnableTheRestartService(t *testing.T) {
+func TestScaffoldPlaybookEnablesTheRestartService(t *testing.T) {
 	fsys, _ := loadScaffold(t)
-	for _, r := range domain.Roles() {
-		path := "machines/" + r.String() + "/playbook.yaml"
-		data := read(t, fsys, path)
-		for _, want := range []string{"        name: podman-restart.service", "        scope: user", "        enabled: true", "  hosts: localhost"} {
-			if !hasLine(data, want) {
-				t.Errorf("%s: missing line %q", path, want)
-			}
+	path := domain.PlaybookFile
+	data := read(t, fsys, path)
+	for _, want := range []string{"        name: podman-restart.service", "        scope: user", "        enabled: true", "  hosts: localhost"} {
+		if !hasLine(data, want) {
+			t.Errorf("%s: missing line %q", path, want)
 		}
 	}
 }

@@ -16,7 +16,7 @@ func TestRoleNames(t *testing.T) {
 	tests := []struct {
 		role    Role
 		name    string
-		machine string
+		network string
 	}{
 		{Infra, "infra", "lclaw-infra"},
 		{Services, "services", "lclaw-services"},
@@ -26,8 +26,8 @@ func TestRoleNames(t *testing.T) {
 		if got := tt.role.String(); got != tt.name {
 			t.Errorf("Role(%d).String() = %q, want %q", int(tt.role), got, tt.name)
 		}
-		if got := tt.role.MachineName(); got != tt.machine {
-			t.Errorf("Role(%d).MachineName() = %q, want %q", int(tt.role), got, tt.machine)
+		if got := tt.role.NetworkName(); got != tt.network {
+			t.Errorf("Role(%d).NetworkName() = %q, want %q", int(tt.role), got, tt.network)
 		}
 	}
 }

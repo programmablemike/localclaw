@@ -3,7 +3,7 @@ title: "Scaffold reference"
 description: "Layout of the lclaw scaffold directory, the lclaw.toml schema and validation rules, the Pod file conventions, and what lclaw init does to each file."
 diataxis: reference
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [scaffold, lclaw-toml, topology, pod, containerfile, playbook, init]
 related:
   - cli.md
@@ -13,6 +13,14 @@ related:
 ---
 
 # Scaffold reference
+
+> **Changing.** This page describes the `schema = 1` scaffold that `lclaw
+> init` writes today: three Podman machines. That topology was never
+> deployable, because Podman on macOS runs one machine at a time, and
+> [Single machine](../explanation/single-machine.md) replaces it with one
+> machine, a `[machine]` table and `[zones.<role>]` tables under
+> `schema = 2`. This page is rewritten when the
+> [lifecycle commands](../explanation/lifecycle-commands.md) land.
 
 The scaffold is the directory of files that describe a LocalClaw deployment:
 which Podman machines exist, how big they are, what runs on each, and how

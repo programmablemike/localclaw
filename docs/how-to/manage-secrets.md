@@ -3,7 +3,7 @@ title: "Manage secrets"
 description: "Create the keychain, set a provider API key, rotate the LiteLLM master key, and read a value to log into the LiteLLM dashboard."
 diataxis: how-to
 status: stable
-last_reviewed: 2026-09-21
+last_reviewed: 2026-09-22
 tags: [secrets, keychain, litellm, lclaw]
 related:
   - ../reference/secrets.md
@@ -15,6 +15,11 @@ related:
 
 When you finish, LocalClaw's keychain exists, your provider key is stored
 in it, and you know how to rotate a generated secret and read one back.
+
+> **Changing.** The `[machines.services]` table and the `services  stored`
+> lines below reflect the current three-machine scaffold. Under
+> [Single machine](../explanation/single-machine.md) the table is
+> `[zones.services]` and there is one store; the commands are the same.
 
 ## Prerequisites
 

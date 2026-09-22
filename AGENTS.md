@@ -12,8 +12,9 @@ that subdirectory.
 - **Default branch:** `main`
 - **Documentation:** `docs/`, organised with [Diátaxis](https://diataxis.fr).
   Agent index at `docs/llms.txt`.
-- **Description:** Run OpenClaw agents in isolated Podman machines on macOS,
-  with a Go CLI (`lclaw`) to manage them. See [`README.md`](README.md).
+- **Description:** Run OpenClaw agents in isolated containers on a Podman
+  machine on macOS, with a Go CLI (`lclaw`) to manage them. See
+  [`README.md`](README.md).
 - **License:** MIT. See [`LICENSE`](LICENSE).
 
 ## Ground rules

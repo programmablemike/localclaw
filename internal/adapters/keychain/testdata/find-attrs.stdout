@@ -1,0 +1,20 @@
+keychain: "/Users/me/Library/Keychains/lclaw.keychain-db"
+version: 256
+class: "genp"
+attributes:
+    0x00000007 <blob>="lclaw"
+    0x00000008 <blob>=<NULL>
+    "acct"<blob>="demo"
+    "cdat"<timedate>=0x32303236303932313037303334355A00  "20260921070345Z\000"
+    "crtr"<uint32>=<NULL>
+    "cusi"<sint32>=<NULL>
+    "desc"<blob>="LocalClaw secret"
+    "gena"<blob>=<NULL>
+    "icmt"<blob>="user"
+    "invi"<sint32>=<NULL>
+    "mdat"<timedate>=0x32303236303932313037313233395A00  "20260921071239Z\000"
+    "nega"<sint32>=<NULL>
+    "prot"<blob>=<NULL>
+    "scrp"<sint32>=<NULL>
+    "svce"<blob>="lclaw"
+    "type"<uint32>=<NULL>

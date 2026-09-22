@@ -234,3 +234,33 @@ func TestParseRole(t *testing.T) {
 		t.Error("ParseRole(laptop) should fail")
 	}
 }
+
+func TestValidateReportsSecretFindings(t *testing.T) {
+	top := validTopology()
+	top.Machines[1].Secrets = []string{"Bad_Name"}
+	findings := Validate(top, present(top))
+	var got []string
+	for _, f := range findings {
+		got = append(got, f.String())
+	}
+	want := `machines.services.secrets: "Bad_Name" is not a valid secret name; use a lowercase DNS label of at most 63 characters`
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("findings = %v, want exactly %q", got, want)
+	}
+}
+
+// An unknown machine is reported once, by the machine loop, even when it
+// also declares secrets.
+func TestValidateReportsAnUnknownMachineOnce(t *testing.T) {
+	top := validTopology()
+	top.Machines = append(top.Machines, MachineSpec{Name: "laptop", CPUs: 1, MemoryMiB: 1, DiskGiB: 1, Secrets: []string{"whatever"}})
+	var unknown int
+	for _, f := range Validate(top, present(top)) {
+		if f.Where == "machines.laptop" {
+			unknown++
+		}
+	}
+	if unknown != 1 {
+		t.Fatalf("machines.laptop reported %d times, want 1", unknown)
+	}
+}

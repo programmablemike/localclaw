@@ -12,5 +12,10 @@
       "path": "workloads/openclaw/Containerfile",
       "error": "osfs: write /home/test/.config/lclaw/workloads/openclaw/Containerfile: permission denied"
     }
-  ]
+  ],
+  "keychain": {
+    "path": "/home/tester/Library/Keychains/lclaw.keychain-db",
+    "state": "failed",
+    "error": "keychain: create-keychain: exit status 1"
+  }
 }

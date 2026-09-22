@@ -4,11 +4,12 @@ description: "Commands, global flags, environment variables, exit codes and the 
 diataxis: reference
 status: stable
 last_reviewed: 2026-09-21
-tags: [cli, lclaw, doctor, init, exit-codes, json]
+tags: [cli, lclaw, doctor, init, secrets, exit-codes, json]
 related:
   - ../explanation/cli-architecture.md
   - ../how-to/set-up-a-development-environment.md
   - scaffold.md
+  - secrets.md
 ---
 
 # lclaw command reference
@@ -30,12 +31,12 @@ Global flags may appear before or after the command name.
 | ----------- | -------------- | ------- | -------------- | ---------------------------------------------------------------------- |
 | `--output`  | `text`, `json` | `text`  | `LCLAW_OUTPUT` | Output format for every command.                                       |
 | `--verbose` |                | off     |                | Log every external command, its duration and stderr to standard error. |
-| `--dir`     | path           | `~/.config/lclaw` | `LCLAW_DIR` | Scaffold directory read by `doctor` and written by `init`. |
+| `--dir`     | path           | `~/.config/lclaw` | `LCLAW_DIR` | Scaffold directory read by `doctor` and `secrets`, and written by `init`. |
 | `--help`    |                |         |                | Print usage and exit 0.                                                |
 
 When neither `--dir` nor `LCLAW_DIR` supplies a directory, because the home
-directory cannot be determined or `LCLAW_DIR` is set but empty, `doctor` and
-`init` exit 2 asking for one.
+directory cannot be determined or `LCLAW_DIR` is set but empty, `doctor`,
+`init` and `secrets` exit 2 asking for one.
 
 An unknown flag, an unknown command or an invalid `--output` value prints
 the error and `Run 'lclaw --help' for usage.` to standard error and exits 2.
@@ -53,16 +54,25 @@ earlier results, and the order is fixed.
 | `podman`         | Found, version at least 5.8.0  |                                             | Not found, too old, or `podman --version` failed |
 | `scaffold`       | Directory exists               | Directory not found                         | Not a directory, or unreadable                |
 | `topology`       | `lclaw.toml` decodes and validates; summary counts machines and workloads | Skipped because the `scaffold` check failed | Cannot be read or decoded (one check), or one check per validation finding, summary `<where>: <message>` |
+| `keychain`       | The keychain file exists       | Skipped because the `topology` check failed | Not found at the configured path              |
+| `<secret name>`  | The declared secret is set     |                                             | The declared secret is unset                  |
+| `secrets`        |                                | Skipped because the `keychain` check failed |                                               |
 | `lclaw-infra`    | Machine exists                 | Machine not created                         |                                               |
 | `lclaw-services` | Machine exists                 | Machine not created                         |                                               |
 | `lclaw-agent`    | Machine exists                 | Machine not created                         |                                               |
 | `machines`       |                                | Skipped because the `podman` check failed   | `podman machine list` failed                  |
 
-Checks run in the order `flox`, `podman`, `scaffold`, `topology`, then the
-machines. The three machine checks appear when `podman` passes; the single
-`machines` check appears instead when it does not. A Pass summary for a
-machine says `running` or `stopped`. The validation rules behind the
-`topology` findings are in the [scaffold reference](scaffold.md#validation).
+Checks run in the order `flox`, `podman`, `scaffold`, `topology`,
+`keychain`, one per secret declared in `lclaw.toml`, then the machines. The
+secret checks read each item's attributes, never its value, and appear only
+when the `keychain` check passes and at least one secret is declared; the
+single `secrets` check appears instead when a secret is declared and the
+`keychain` check failed. The three machine checks appear when `podman`
+passes; the single `machines` check appears instead when it does not. A
+Pass summary for a machine says `running` or `stopped`. The validation
+rules behind the `topology` findings are in the
+[scaffold reference](scaffold.md#validation); the keychain and the
+catalogue are in the [secrets reference](secrets.md).
 
 Exit status is 1 when any check is Fail, otherwise 0.
 
@@ -78,10 +88,29 @@ reported; `--force` overwrites them. Each file is written atomically. The
 | --------- | ------------------------------------------ |
 | `--force` | Overwrite files that already exist.       |
 
+After writing the files, `init` reads `lclaw.toml` and creates the keychain
+it names, unless the file already exists. `security` prompts for the new
+keychain's password on the terminal, so lclaw never sees it; when standard
+input is not a terminal it reads the password and its confirmation as two
+lines. An existing keychain is reported as skipped and is never
+overwritten, including under `--force`, because overwriting one destroys
+every secret in it. When a keychain is created and standard input is not a
+terminal, `init` prints a warning to stderr, because an empty stdin makes
+`security` create the keychain with an empty password.
+
 Text output lists `written`, `skipped` and `failed` paths in that order,
-then `<dir>: N written, N skipped, N failed`. Exit status is 1 when any
-file could not be written, otherwise 0; a directory that already holds
-every file is success.
+then the keychain's own `created`, `skipped` or `failed` line, then
+`<dir>: N written, N skipped, N failed`, whose counts cover files only.
+Exit status is 1 when any file could not be written or the keychain step
+failed, otherwise 0; a directory that already holds every file and a
+keychain that already exists are both success.
+
+### `secrets`
+
+`lclaw secrets list`, `describe`, `set`, `update`, `delete` and `get`
+manage the items in the LocalClaw keychain and the Podman secret store of
+every running machine. The catalogue, the flags, the output shapes and the
+exit codes are in the [secrets reference](secrets.md).
 
 ### `version`
 
@@ -100,14 +129,17 @@ Prints a shell completion script: `lclaw completion bash`, `zsh`, `fish` or
 | Code  | Meaning                                                                    |
 | ----- | -------------------------------------------------------------------------- |
 | `0`   | Success. Warnings do not change the exit code.                             |
-| `1`   | At least one `doctor` check failed, an init write failed, or an unexpected error occurred |
-| `2`   | Usage error: unknown flag, unknown command, or an invalid `--output` value |
+| `1`   | At least one `doctor` check failed, an init write or the keychain step failed, a secrets command could not reach the keychain, a secret already exists or is not set, or a machine's store failed, or an unexpected error occurred |
+| `2`   | Usage error: unknown flag, unknown command, an invalid `--output` value, an unknown secret name, an invalid secret value, or `--generate` refused |
 | `130` | Interrupted by SIGINT or SIGTERM                                           |
 
 ## JSON output
 
-With `--output json`, `doctor`, `init` and `version` print one indented JSON
-document on standard output. Logs never go to standard output.
+With `--output json`, `doctor`, `init`, `version` and every `secrets`
+subcommand except `get` print one indented JSON document on standard
+output. `secrets get` writes the raw value and no JSON, whatever `--output`
+says. Logs never go to standard output. The `secrets` shapes are in the
+[secrets reference](secrets.md#json-output).
 
 ### `doctor`
 
@@ -151,7 +183,10 @@ Status values are `pass`, `warn` and `fail`.
 ### `init`
 
 `written`, `skipped` and `failed` are always present, as arrays of paths
-relative to `dir`. Each `failed` entry carries the error text.
+relative to `dir`. Each `failed` entry carries the error text. `keychain`
+is always present; its `state` is `created`, `skipped` or `failed`, `path`
+is omitted when the topology could not be read, and `error` appears only on
+`failed`.
 
 ```json
 {
@@ -168,7 +203,11 @@ relative to `dir`. Each `failed` entry carries the error text.
       "path": "workloads/openclaw/Containerfile",
       "error": "osfs: write /Users/me/.config/lclaw/workloads/openclaw/Containerfile: permission denied"
     }
-  ]
+  ],
+  "keychain": {
+    "path": "/Users/me/Library/Keychains/lclaw.keychain-db",
+    "state": "created"
+  }
 }
 ```
 

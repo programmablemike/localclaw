@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"reflect"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -42,25 +43,8 @@ type fakeEnvs struct {
 
 func (f *fakeEnvs) Version(ctx context.Context) (domain.Version, error) { return f.version, f.err }
 
-// fakeScaffold is a DirOpener that returns a fixed file system or error.
-type fakeScaffold struct {
-	fsys fs.FS
-	err  error
-	dir  string // the dir OpenDir received
-}
-
-func (f *fakeScaffold) OpenDir(dir string) (fs.FS, error) {
-	f.dir = dir
-	return f.fsys, f.err
-}
-
-// fakeLoader is a TopologyLoader that returns a fixed topology or error.
-type fakeLoader struct {
-	top domain.Topology
-	err error
-}
-
-func (f *fakeLoader) Load(fs.FS) (domain.Topology, error) { return f.top, f.err }
+// fakeScaffold and fakeLoader are declared once, in fakes_test.go, and
+// shared by every test file in this package.
 
 const dirArg = "/home/test/.config/lclaw"
 
@@ -76,8 +60,9 @@ var (
 // defaultTopology mirrors the embedded lclaw.toml.
 func defaultTopology() domain.Topology {
 	return domain.Topology{
-		Schema:   1,
-		Provider: "libkrun",
+		Schema:       1,
+		Provider:     "libkrun",
+		KeychainPath: kcPath,
 		Machines: []domain.MachineSpec{
 			{Name: "infra", CPUs: 1, MemoryMiB: 1024, DiskGiB: 10, Workloads: []domain.Workload{"wireguard", "kuma-cp", "gateway"}},
 			{Name: "services", CPUs: 2, MemoryMiB: 4096, DiskGiB: 30, Workloads: []domain.Workload{"litellm-db", "litellm", "agentgateway"}},
@@ -103,7 +88,8 @@ func healthy() *Doctor {
 		Runtime:  &fakeRuntime{version: podman584, machines: allThree},
 		Envs:     &fakeEnvs{version: flox1131},
 		Scaffold: &fakeScaffold{fsys: fullScaffold()},
-		Topology: &fakeLoader{top: defaultTopology()},
+		Topology: &fakeLoader{topo: defaultTopology()},
+		Keychain: &fakeKeychain{exists: true},
 	}
 }
 
@@ -126,6 +112,7 @@ func TestDoctorAllPass(t *testing.T) {
 		podmanPass,
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
 		{Name: "topology", Status: domain.Pass, Summary: "3 machines, 7 workloads"},
+		keychainPass,
 		{Name: "lclaw-infra", Status: domain.Pass, Summary: "running"},
 		{Name: "lclaw-services", Status: domain.Pass, Summary: "running"},
 		{Name: "lclaw-agent", Status: domain.Pass, Summary: "stopped"},
@@ -133,8 +120,8 @@ func TestDoctorAllPass(t *testing.T) {
 	if !reflect.DeepEqual(r, want) {
 		t.Fatalf("Run() =\n%+v\nwant\n%+v", r, want)
 	}
-	if got := d.Scaffold.(*fakeScaffold).dir; got != dirArg {
-		t.Errorf("OpenDir received %q, want %q", got, dirArg)
+	if got := d.Scaffold.(*fakeScaffold).dirs; !reflect.DeepEqual(got, []string{dirArg}) {
+		t.Errorf("OpenDir received %v, want [%q]", got, dirArg)
 	}
 }
 
@@ -146,7 +133,7 @@ func TestDoctorFloxMissingStillChecksEverything(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"flox", "podman", "scaffold", "topology", "lclaw-infra", "lclaw-services", "lclaw-agent"}
+	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}
 	if got := names(r); !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
@@ -170,6 +157,7 @@ func TestDoctorPodmanMissingSkipsMachines(t *testing.T) {
 		{Name: "podman", Status: domain.Fail, Summary: "not found", Hint: domain.PodmanRequirement.InstallHint},
 		{Name: "scaffold", Status: domain.Pass, Summary: dirArg},
 		{Name: "topology", Status: domain.Pass, Summary: "3 machines, 7 workloads"},
+		keychainPass,
 		{Name: "machines", Status: domain.Warn, Summary: "skipped because the podman check failed", Hint: "fix podman, then run `lclaw doctor` again"},
 	}}
 	if !reflect.DeepEqual(r, want) {
@@ -184,7 +172,7 @@ func TestDoctorPodmanTooOldSkipsMachines(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "machines"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "machines"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 	if r.Checks[1].Status != domain.Fail || r.Checks[1].Summary != "5.7.2 is older than the minimum 5.8.0" {
@@ -223,7 +211,7 @@ func TestDoctorScaffoldMissingIsWarnAndTopologySkipped(t *testing.T) {
 	if r.Worst() != domain.Warn {
 		t.Errorf("Worst() = %v, want Warn: a missing scaffold is not a failure", r.Worst())
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 }
@@ -274,7 +262,7 @@ func TestDoctorTopologyFindingsAreEachAFailedCheck(t *testing.T) {
 	d := healthy()
 	top := defaultTopology()
 	top.Machines[0].CPUs = 0
-	d.Topology = &fakeLoader{top: top}
+	d.Topology = &fakeLoader{topo: top}
 	scaffold := fullScaffold()
 	delete(scaffold, "workloads/openclaw/pod.yaml")
 	d.Scaffold = &fakeScaffold{fsys: scaffold}
@@ -289,7 +277,7 @@ func TestDoctorTopologyFindingsAreEachAFailedCheck(t *testing.T) {
 	if got := r.Checks[3:5]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("topology checks =\n%+v\nwant\n%+v", got, want)
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "topology", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "topology", "keychain", "lclaw-infra", "lclaw-services", "lclaw-agent"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
 	}
 }
@@ -300,12 +288,17 @@ func TestDoctorEverythingBrokenIsAllReported(t *testing.T) {
 		Envs:     &fakeEnvs{err: fmt.Errorf("flox: version: %w", ErrToolNotFound)},
 		Scaffold: &fakeScaffold{err: fmt.Errorf("osfs: open %s: %w", dirArg, fs.ErrNotExist)},
 		Topology: &fakeLoader{},
+		Keychain: &fakeKeychain{},
 	}
 	r, err := d.Run(context.Background(), dirArg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Count(domain.Fail) != 2 || r.Count(domain.Warn) != 3 {
+	// scaffold and topology are Warn (skipped), keychain is Warn (skipped
+	// because the topology check failed), and machines is Warn (skipped
+	// because the podman check failed): four Warns alongside the two Fails
+	// from flox and podman.
+	if r.Count(domain.Fail) != 2 || r.Count(domain.Warn) != 4 {
 		t.Fatalf("counts: fail=%d warn=%d; report %+v", r.Count(domain.Fail), r.Count(domain.Warn), r)
 	}
 }
@@ -334,7 +327,121 @@ func TestDoctorCancelledDuringMachineList(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
-	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology"}; !reflect.DeepEqual(got, want) {
+	if got, want := names(r), []string{"flox", "podman", "scaffold", "topology", "keychain"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("check names = %v, want %v", got, want)
+	}
+}
+
+// keychainPass is the check a present keychain produces, for the tests
+// that only care about what comes after it.
+var keychainPass = domain.Check{Name: "keychain", Status: domain.Pass, Summary: kcPath}
+
+func newDoctorWithSecrets(kc *fakeKeychain, topo domain.Topology) *Doctor {
+	d := healthy() // the existing helper wiring Runtime, Envs, Scaffold, Topology
+	d.Topology = &fakeLoader{topo: topo}
+	d.Keychain = kc
+	return d
+}
+
+func TestDoctorReportsEveryDeclaredSecret(t *testing.T) {
+	topo := servicesTopology()
+	topo.Machines[1].Secrets = []string{"anthropic-api-key", "openai-api-key"}
+	kc := &fakeKeychain{exists: true, items: map[string]fakeItem{
+		"anthropic-api-key": {value: []byte("k"), source: domain.User},
+	}}
+	r, err := newDoctorWithSecrets(kc, topo).Run(context.Background(), "/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := checksNamed(r, "keychain", "anthropic-api-key", "openai-api-key")
+	want := []domain.Check{
+		keychainPass,
+		{Name: "anthropic-api-key", Status: domain.Pass, Summary: "set"},
+		{Name: "openai-api-key", Status: domain.Fail, Summary: "unset", Hint: "run `lclaw secrets set openai-api-key`"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("checks =\n%+v\nwant\n%+v", got, want)
+	}
+	for _, c := range kc.calls {
+		if strings.HasPrefix(c, "get ") {
+			t.Fatalf("doctor must not read values: %v", kc.calls)
+		}
+	}
+}
+
+func TestDoctorKeychainMissingSkipsSecretChecks(t *testing.T) {
+	kc := &fakeKeychain{exists: false}
+	r, err := newDoctorWithSecrets(kc, servicesTopology()).Run(context.Background(), "/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := checksNamed(r, "keychain", "secrets", "anthropic-api-key")
+	want := []domain.Check{
+		{Name: "keychain", Status: domain.Fail, Summary: "not found at " + kcPath, Hint: "run `lclaw init` to create it"},
+		{Name: "secrets", Status: domain.Warn, Summary: "skipped because the keychain check failed", Hint: "run `lclaw init`, then `lclaw doctor` again"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("checks =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestDoctorKeychainSkippedWhenTheTopologyCannotBeRead(t *testing.T) {
+	d := newDoctorWithSecrets(&fakeKeychain{exists: true}, servicesTopology())
+	d.Topology = &fakeLoader{err: errors.New("lclaw.toml: line 3: expected key")}
+	r, err := d.Run(context.Background(), "/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := checksNamed(r, "keychain")
+	want := []domain.Check{{Name: "keychain", Status: domain.Warn, Summary: "skipped because the topology check failed", Hint: "fix lclaw.toml, then run `lclaw doctor` again"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("checks = %+v, want %+v", got, want)
+	}
+}
+
+func TestDoctorNoDeclaredSecretsEmitsOnlyTheKeychainCheck(t *testing.T) {
+	topo := servicesTopology()
+	topo.Machines[1].Secrets = nil
+	r, err := newDoctorWithSecrets(&fakeKeychain{exists: true}, topo).Run(context.Background(), "/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := checksNamed(r, "keychain"); len(got) != 1 || got[0] != keychainPass {
+		t.Fatalf("checks = %+v", got)
+	}
+	if got := checksNamed(r, "secrets"); len(got) != 0 {
+		t.Fatalf("a secrets check appeared with nothing declared: %+v", got)
+	}
+}
+
+// checksNamed returns the report's checks whose names are in want, in
+// report order, so a test asserts on a slice of the report rather than on
+// fragile indices.
+func checksNamed(r domain.Report, want ...string) []domain.Check {
+	keep := map[string]bool{}
+	for _, n := range want {
+		keep[n] = true
+	}
+	var out []domain.Check
+	for _, c := range r.Checks {
+		if keep[c.Name] {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func TestDoctorCheckOrder(t *testing.T) {
+	r, err := newDoctorWithSecrets(&fakeKeychain{exists: true}, servicesTopology()).Run(context.Background(), "/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, c := range r.Checks {
+		names = append(names, c.Name)
+	}
+	want := []string{"flox", "podman", "scaffold", "topology", "keychain", "anthropic-api-key", "lclaw-infra", "lclaw-services", "lclaw-agent"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("check order = %v, want %v", names, want)
 	}
 }

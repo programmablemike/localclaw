@@ -22,16 +22,18 @@ const module = "github.com/programmablemike/localclaw"
 // allowed maps a package (path relative to the module root; "" is the root
 // package) to the module packages it may import. "*" means anything.
 var allowed = map[string][]string{
-	"":                         {},
-	"internal/domain":          {},
-	"internal/app":             {"internal/domain"},
-	"internal/cli":             {"internal/app", "internal/domain"},
-	"internal/adapters/exec":   {},
-	"internal/adapters/flox":   {"internal/app", "internal/domain", "internal/adapters/exec"},
-	"internal/adapters/osfs":   {},
-	"internal/adapters/podman": {"internal/app", "internal/domain", "internal/adapters/exec"},
-	"internal/adapters/toml":   {"internal/domain"},
-	"cmd/lclaw":                {"*"},
+	"":                           {},
+	"internal/domain":            {},
+	"internal/app":               {"internal/domain"},
+	"internal/cli":               {"internal/app", "internal/domain"},
+	"internal/adapters/exec":     {},
+	"internal/adapters/flox":     {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/keychain": {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/osfs":     {},
+	"internal/adapters/podman":   {"internal/app", "internal/domain", "internal/adapters/exec"},
+	"internal/adapters/toml":     {"internal/domain"},
+	"internal/adapters/tty":      {},
+	"cmd/lclaw":                  {"*"},
 }
 
 func TestImportBoundaries(t *testing.T) {

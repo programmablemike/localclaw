@@ -40,6 +40,7 @@ var initWritten = app.InitReport{
 		"workloads/openclaw/Containerfile",
 		"workloads/openclaw/pod.yaml",
 	},
+	Keychain: app.KeychainOutcome{Path: "/home/tester/Library/Keychains/lclaw.keychain-db", State: app.KeychainCreated},
 }
 
 var initMixed = app.InitReport{
@@ -50,6 +51,7 @@ var initMixed = app.InitReport{
 		Path: "workloads/openclaw/Containerfile",
 		Err:  errors.New("osfs: write /home/test/.config/lclaw/workloads/openclaw/Containerfile: permission denied"),
 	}},
+	Keychain: app.KeychainOutcome{Path: "/home/tester/Library/Keychains/lclaw.keychain-db", State: app.KeychainFailed, Err: errors.New("keychain: create-keychain: exit status 1")},
 }
 
 func TestInitText(t *testing.T) {
@@ -60,11 +62,63 @@ func TestInitText(t *testing.T) {
 		t.Fatal(r.err)
 	}
 	golden(t, "init-written.txt", r.stdout.Bytes())
-	if r.stderr.Len() != 0 {
-		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	// executeInit never sets Deps.Prompt, so this exercises the same
+	// stdin-not-a-terminal path init hits when the keychain step created a
+	// keychain: security read its password from stdin.
+	if !strings.Contains(r.stderr.String(), "warning:") {
+		t.Fatalf("stderr = %q, want a warning about the non-terminal stdin", r.stderr.String())
 	}
 	if ini.dir != testDefaultDir || ini.force {
 		t.Fatalf("Run(dir=%q, force=%v), want default dir and no force", ini.dir, ini.force)
+	}
+}
+
+// TestInitNoWarningWhenPromptIsSet covers a terminal stdin: the composition
+// root only sets Deps.Prompt when stdin is a terminal, so no warning about
+// reading the keychain password off it is due.
+func TestInitNoWarningWhenPromptIsSet(t *testing.T) {
+	ini := &fakeInit{report: initWritten}
+	r := executeDeps(t, Deps{
+		Doctor:     &fakeDoctor{},
+		Init:       ini,
+		DefaultDir: testDefaultDir,
+		Prompt:     func(string) ([]byte, error) { return nil, nil },
+	}, "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if r.stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	}
+}
+
+// TestInitNoWarningWhenKeychainSkipped covers an existing keychain: nothing
+// was created, so nothing about the new keychain's password is due either.
+func TestInitNoWarningWhenKeychainSkipped(t *testing.T) {
+	rep := initWritten
+	rep.Keychain = app.KeychainOutcome{Path: "/home/tester/Library/Keychains/lclaw.keychain-db", State: app.KeychainSkipped}
+	r := executeInit(t, &fakeInit{report: rep}, "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if r.stderr.Len() != 0 {
+		t.Fatalf("stderr = %q, want empty", r.stderr.String())
+	}
+}
+
+// TestInitWarnsInJSONOutputToo covers --output json: the warning still goes
+// to stderr, and stdout stays valid, unwarnished JSON.
+func TestInitWarnsInJSONOutputToo(t *testing.T) {
+	ini := &fakeInit{report: initWritten}
+	r := executeInit(t, ini, "--output", "json", "init")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !strings.Contains(r.stderr.String(), "warning:") {
+		t.Fatalf("stderr = %q, want a warning about the non-terminal stdin", r.stderr.String())
+	}
+	if strings.Contains(r.stdout.String(), "warning") {
+		t.Fatalf("stdout = %q, want no mention of the warning", r.stdout.String())
 	}
 }
 
@@ -87,6 +141,18 @@ func TestInitMixedJSON(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInitFailed", r.err)
 	}
 	golden(t, "init-mixed.json", r.stdout.Bytes())
+}
+
+func TestInitKeychainFailureExits1(t *testing.T) {
+	rep := initWritten
+	rep.Keychain = app.KeychainOutcome{Path: "/k/lclaw.keychain-db", State: app.KeychainFailed, Err: errors.New("keychain: create-keychain: exit status 1")}
+	r := executeInit(t, &fakeInit{report: rep}, "init")
+	if !errors.Is(r.err, ErrInitFailed) || ExitCode(r.err) != 1 {
+		t.Fatalf("err = %v, exit %d", r.err, ExitCode(r.err))
+	}
+	if !strings.Contains(r.stdout.String(), "failed   /k/lclaw.keychain-db: keychain: create-keychain: exit status 1") {
+		t.Fatalf("stdout = %q", r.stdout.String())
+	}
 }
 
 func TestInitAllSkippedIsSuccess(t *testing.T) {
@@ -149,7 +215,7 @@ func TestRenderInitJSONEmpty(t *testing.T) {
 	if err := renderInitJSON(&buf, app.InitReport{Dir: "/x"}); err != nil {
 		t.Fatal(err)
 	}
-	want := "{\n  \"dir\": \"/x\",\n  \"written\": [],\n  \"skipped\": [],\n  \"failed\": []\n}\n"
+	want := "{\n  \"dir\": \"/x\",\n  \"written\": [],\n  \"skipped\": [],\n  \"failed\": [],\n  \"keychain\": {\n    \"state\": \"\"\n  }\n}\n"
 	if got := buf.String(); got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

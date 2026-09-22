@@ -2,14 +2,16 @@
 title: "Secrets management"
 description: "Why secrets live in a dedicated macOS keychain, how lclaw injects them into each Podman machine as Kubernetes-shaped secrets, and what the secrets commands own."
 diataxis: explanation
-status: draft
-last_reviewed: 2026-09-20
+status: stable
+last_reviewed: 2026-09-21
 tags: [secrets, keychain, podman, kube-play, security, cli, design-decision]
 related:
   - ../../README.md
   - cli-architecture.md
   - deployment-model.md
   - ../reference/cli.md
+  - ../reference/secrets.md
+  - ../how-to/manage-secrets.md
 ---
 
 # Secrets management
@@ -20,8 +22,10 @@ later the WireGuard and Kuma material the network design will add. This page
 records the design agreed on 2026-09-20 for where those values live on the
 host, how they reach the containers, and which commands manage them. It was
 written before the code existed and is the specification the implementation
-follows. Once the code lands, the facts in it (the catalogue, flags, output
-shapes, exit codes) move to reference pages and the reasoning stays here.
+followed. The facts it fixed (the catalogue, flags, output shapes, exit
+codes) now live in the [secrets reference](../reference/secrets.md), and
+the reasoning stays here; where the two disagree, the reference page is
+right and "Refinements made during implementation" below says why.
 
 The short version: every secret is an item in a keychain file that belongs to
 LocalClaw. `lclaw up` reads the items it needs, generates any that are
@@ -463,6 +467,136 @@ carried into the implementation plan as explicit tasks.
   name.
 - The interactive-mode line limit is near 4 KiB, so 1024-byte values fit.
 
+## Refinements made during implementation
+
+The code landed on 2026-09-21 and matches this page with the changes below,
+recorded so the page stays accurate. Where a change contradicts something
+above, the [secrets reference](../reference/secrets.md) is the fact and
+this list is the reason.
+
+**What `security` actually does**
+
+- **A missing keychain path is dangerous, not an error.**
+  `security add-generic-password` with a keychain path that does not exist
+  writes the item to the **default** keychain and exits 0, and
+  `find-generic-password` on a missing path exits 44 ("not found") rather
+  than 50 ("no such keychain"). Exit 50 only comes from
+  `unlock-keychain`, `set-keychain-settings` and `show-keychain-info`. The
+  adapter therefore refuses every operation when the file is absent
+  instead of trusting the exit code, and the use cases check the file
+  before their first read or write. `ResolveSecrets`, which `up` will
+  call, makes the same check before any `Get` or `Put`.
+- **The value is validated before `Put`, not only by the use case.** An
+  empty value is refused in the adapter as well, because the interactive
+  line is assembled as `... -X <hex> "<path>"`: with no hexadecimal digits,
+  `-X` consumes the quoted keychain path as its argument and the line
+  loses its keychain operand, which is exactly the case that targets the
+  default keychain. Checking the value in the adapter makes the existence
+  guard structural rather than a matter of call order.
+- **`create-keychain` with a non-terminal stdin reads two lines**, the
+  password and its confirmation, and given none it creates the keychain
+  with an **empty password** and exits 0. That was observed on this
+  machine on 2026-09-21, when a test ran `init` without isolating `$HOME`.
+  It is why the how-to guide's scripted form pipes the password twice and
+  warns against `/dev/null`, and why the end-to-end tests in
+  `cmd/lclaw/main_test.go` now isolate `$HOME` and, on macOS, pre-create
+  the keychain so no test ever drives the prompt or touches
+  `~/Library/Keychains`.
+- **The quoted form of `find-generic-password -g` is not escaped.** A value
+  containing a quote prints as `password: "a"b"`, so the parser takes
+  everything between the first and the last quote on the line. The
+  hexadecimal form is used for everything that is not printable ASCII, so
+  this only matters for keys a provider issued with a quote in them.
+
+**What Podman actually does**
+
+- **Listing by label needs two calls.** `podman secret ls` filters only by
+  `name` and `id`, so the purge step runs `secret ls --quiet`, then
+  `secret inspect` on the ids, and filters on the decoded labels.
+- **Errors from `secret create` are redacted.** `Sensitive` on the runner
+  governs logging only, and Podman may echo part of its stdin on a parse
+  failure — and that stdin carries the base64-encoded value. The adapter
+  therefore strips the offending stderr lines before it wraps the error.
+- **Redaction matches fragments, not the whole value.** An `ExitError`
+  carries only the trimmed last 1024 bytes of stderr, so an echoed value
+  longer than that arrives as a piece of itself, and a value the tool
+  wrapped across lines was never on one line to begin with. `exec.Redact`
+  therefore drops any line sharing a run of 16 or more characters with the
+  encoded value, which covers both; a shorter value is matched whole. The
+  keychain adapter uses the same helper for the hexadecimal `-X` argument
+  that `security -i` echoes back.
+
+**What the commands settled**
+
+- **Value precedence is file, prompt, stdin.** `--from-file` wins;
+  otherwise the no-echo prompt, which the composition root supplies only
+  when standard input is a terminal; otherwise the value is read from
+  standard input with one trailing newline trimmed. With neither a file, a
+  terminal, nor piped input the command is a usage error and exits 2; the
+  binary always wires standard input, so redirecting it from an empty file
+  reaches the same exit code through `invalid secret value` instead. This
+  page had stdin ahead of the prompt, which would have made a terminal
+  session block on a read instead of prompting.
+- **`get` ignores `--output`.** It writes the raw bytes with no trailing
+  newline, so piping it into another tool gives exactly the stored value.
+- **Catalogue findings render unsplit.** Each finding is one `FAIL` line,
+  `machines.<role>.secrets` followed by the whole message, with no
+  separate hint line, because the message interpolates the user's own
+  secret name and a name containing `; ` would otherwise split in the
+  wrong place.
+- **Secret-name validation lives in `domain.Validate`.** `lclaw.toml` has
+  one validator rather than two entry points, so an unknown machine is
+  reported once, by the topology rules, and its `secrets` list is ignored
+  rather than reported a second time by the catalogue.
+- **`doctor`'s keychain check runs only after the topology loads.** On a
+  directory with no `lclaw.toml`, or one that cannot be decoded, there is
+  no keychain path to check, so the check is a `warn` summarised "skipped
+  because the topology check failed" rather than a failure. The per-secret
+  checks appear only when the `keychain` check passes and at least one
+  secret is declared under a machine, and they call the keychain's
+  attribute lookup (`Describe`), never `Get`.
+- **`lclaw init` on Linux still writes everything.** The keychain step
+  needs macOS's `/usr/bin/security`; where it is absent `init` writes every
+  file, reports `keychain: failed` with an error naming the missing tool,
+  and exits 1. CI's Ubuntu `scaffold` job (`scripts/scaffold-check.sh`)
+  therefore runs `init` with `--output json` and forgives a non-zero exit
+  only when `"failed": []` and the keychain state is `failed`; anything
+  else fails the job.
+
+**What the neighbouring designs supplied**
+
+- **The deployment model landed first.** The `lclaw.toml` loader,
+  `lclaw init`, the scaffold and the global `--dir` flag all came from that
+  design rather than this one. This design added the `[keychain]` path, the
+  per-machine `secrets` list and the keychain step in `init`.
+- **One dependency, measured again.** `golang.org/x/term` was re-measured
+  on 2026-09-21 with Go 1.26.7: two modules in the graph
+  (`golang.org/x/term` v0.46.0 and `golang.org/x/sys` v0.48.0), both
+  linked, no cgo, as predicted. Adding it also normalised the `go`
+  directive in `go.mod` to `go 1.26.0`.
+
+**The assumptions this page listed**
+
+- **A secret volume is a named volume with the secret's name.** Pinned by
+  CI, not by hand: the wire-contract section of `scripts/scaffold-check.sh`
+  plays a pod that reads the same secret as an environment variable and as
+  a file and then asserts that a volume of that name exists, and CI's
+  Ubuntu `scaffold` job runs it on every pull request.
+- **The interactive-mode line limit is near 4 KiB, so 1024-byte values
+  fit.** Pinned by CI as well, but by the `check (macos-latest)` job:
+  `TestRealKeychain` puts a 1024-byte value through `security -i` against a
+  throwaway keychain and reads it back. It is skipped where `security` is
+  absent, which is why the Ubuntu job does not cover it.
+- **`security create-keychain` prompts without echo on a real terminal.**
+  Not covered by a test, deliberately: the tests pre-create the keychain so
+  that none of them can hang on a prompt or leave an empty-password
+  keychain behind. It is exercised only when a person runs `lclaw init`.
+- **macOS shows its unlock dialog when `security` touches a locked
+  keychain in a session with a display.** Not verified. Nothing in this
+  work ran on a machine with a display and a locked keychain. The
+  unlock-and-retry path for the no-display case is exercised against the
+  exec fake, but the dialog itself is still an assumption.
+
 ## Alternatives considered
 
 **The login keychain by default.** Zero extra prompts, but any local
@@ -514,13 +648,16 @@ The `-g` reader costs one line of parsing and keeps items readable.
 - The README's architecture section should say that secrets live in a
   keychain and are injected on `up`.
 
-## What lands with the code
+## What landed with the code
 
-- `docs/reference/secrets.md`: the catalogue, the keychain layout, the
-  command flags, the JSON shapes and the exit codes.
-- `docs/how-to/manage-secrets.md`: set a provider key, rotate the master
-  key, log into the LiteLLM dashboard.
-- A `podman secret create` step with the JSON shape added to
-  `docs/how-to/apply-a-deployment-by-hand.md`.
-- This page moves from `draft` to `stable` once the implementation matches
-  it.
+- [`docs/reference/secrets.md`](../reference/secrets.md): the catalogue,
+  the keychain layout, the command flags, the JSON shapes and the exit
+  codes.
+- [`docs/how-to/manage-secrets.md`](../how-to/manage-secrets.md): set a
+  provider key, rotate the master key, log into the LiteLLM dashboard.
+- The secret-creation step in
+  [Apply a deployment by hand](../how-to/apply-a-deployment-by-hand.md),
+  which landed with the deployment model and uses `kube play` on a
+  Kubernetes `Secret` document rather than `podman secret create`.
+- The README and changelog entries listed under consequences, and this
+  page moving from `draft` to `stable`.

@@ -5,7 +5,7 @@ package main
 
 import (
 	"context"
-	"errors"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,9 +19,11 @@ import (
 	"github.com/programmablemike/localclaw"
 	"github.com/programmablemike/localclaw/internal/adapters/exec"
 	"github.com/programmablemike/localclaw/internal/adapters/flox"
+	"github.com/programmablemike/localclaw/internal/adapters/keychain"
 	"github.com/programmablemike/localclaw/internal/adapters/osfs"
 	"github.com/programmablemike/localclaw/internal/adapters/podman"
 	"github.com/programmablemike/localclaw/internal/adapters/toml"
+	"github.com/programmablemike/localclaw/internal/adapters/tty"
 	"github.com/programmablemike/localclaw/internal/app"
 	"github.com/programmablemike/localclaw/internal/cli"
 )
@@ -39,21 +41,49 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	runner := &exec.System{Log: logger}
 	files := osfs.System{}
-	doctor := &app.Doctor{
-		Runtime:  &podman.Client{Runner: runner},
-		Envs:     &flox.Client{Runner: runner},
-		Scaffold: files,
-		Topology: toml.Loader{},
-	}
-	root := cli.New(cli.Deps{
-		Doctor:     doctor,
-		Init:       &app.Init{Defaults: scaffoldFS(), Writer: files},
+	loader := toml.Loader{}
+	kc := &keychain.Client{Runner: runner}
+	podmanClient := &podman.Client{Runner: runner}
+
+	deps := cli.Deps{
+		Doctor: &app.Doctor{
+			Runtime:  podmanClient,
+			Envs:     &flox.Client{Runner: runner},
+			Scaffold: files,
+			Topology: loader,
+			Keychain: kc,
+		},
+		Init: &app.Init{
+			Defaults: scaffoldFS(),
+			Writer:   files,
+			Scaffold: files,
+			Topology: loader,
+			Keychain: kc,
+		},
+		Secrets: &app.Secrets{
+			Scaffold: files,
+			Topology: loader,
+			Keychain: kc,
+			Target:   podmanClient,
+			Minter:   app.UnavailableMinter{},
+			Random:   rand.Reader,
+		},
 		Build:      buildInfo(),
 		DefaultDir: defaultDir(),
 		Level:      level,
 		Stdout:     stdout,
 		Stderr:     stderr,
-	})
+		Stdin:      os.Stdin,
+	}
+	// The prompt is offered only when stdin is a terminal; otherwise the
+	// value comes from the pipe. It writes to stderr so stdout stays clean
+	// for `secrets get` and for --output json.
+	if tty.IsTerminal(os.Stdin) {
+		deps.Prompt = func(prompt string) ([]byte, error) {
+			return tty.ReadPassword(os.Stdin, stderr, prompt)
+		}
+	}
+	root := cli.New(deps)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -63,10 +93,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch {
 	case code == 130:
 		fmt.Fprintln(stderr, "lclaw: interrupted")
-	case code == 1 && !errors.Is(err, cli.ErrChecksFailed) && !errors.Is(err, cli.ErrInitFailed):
-		// Failed checks and failed writes were already reported; usage
-		// errors were already printed by the cli package. Everything else
-		// is unexpected.
+	case err != nil && !cli.Silent(err):
+		// Failed checks, failed writes and usage errors were already
+		// reported by the cli package (cli.Silent says so). Everything
+		// else — including the secrets command group's sentinel errors —
+		// has not been printed anywhere yet.
 		fmt.Fprintf(stderr, "lclaw: %v\n", err)
 	}
 	return code

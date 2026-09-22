@@ -3,5 +3,6 @@ written  machines/agent/playbook.yaml
 written  workloads/openclaw/.containerignore
 written  workloads/openclaw/Containerfile
 written  workloads/openclaw/pod.yaml
+created  /home/tester/Library/Keychains/lclaw.keychain-db
 
 /home/test/.config/lclaw: 5 written, 0 skipped, 0 failed

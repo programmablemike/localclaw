@@ -14,21 +14,25 @@ type Catalogue struct {
 
 // NewCatalogue merges builtin with declared, a map from machine name (as
 // written in lclaw.toml) to secret names. Any built-in entry a user sets by
-// hand becomes source "user" at set time, not here. Problems are returned as
-// findings, all of them, the way topology validation reports: a malformed
-// name, a name that collides with a built-in entry, a name listed twice
-// under one machine, or an unknown machine. A name listed under two
+// hand becomes source "user" at set time, not here. A name listed under two
 // machines is one entry received by both.
-func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue, []Check) {
+//
+// Problems are returned as findings, all of them, in the shape topology
+// validation uses: a malformed name, a name that collides with a built-in
+// entry, or a name listed twice under one machine. A machine name that is
+// not a role is not a finding here and its secrets are ignored, because
+// Validate already reports the machine itself; reporting it again would
+// show the same problem twice.
+func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue, []Finding) {
 	byName := make(map[string]int, len(builtin)) // name -> index in entries
 	entries := append([]SecretSpec(nil), builtin...)
 	for i := range entries {
 		byName[entries[i].Name] = i
 	}
 
-	var findings []Check
-	fail := func(where, summary, hint string) {
-		findings = append(findings, Check{Name: where, Status: Fail, Summary: summary, Hint: hint})
+	var findings []Finding
+	fail := func(where, format string, args ...any) {
+		findings = append(findings, Finding{Where: where, Message: fmt.Sprintf(format, args...)})
 	}
 
 	for _, role := range Roles() {
@@ -41,13 +45,13 @@ func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue
 		for _, name := range list {
 			switch {
 			case ValidateName(name) != nil:
-				fail(where, fmt.Sprintf("%q is not a valid secret name", name), "use a lowercase DNS label of at most 63 characters")
+				fail(where, "%q is not a valid secret name; use a lowercase DNS label of at most 63 characters", name)
 				continue
 			case isBuiltin(builtin, name):
-				fail(where, fmt.Sprintf("%q collides with a built-in secret", name), "remove it from lclaw.toml; built-in secrets are always available")
+				fail(where, "%q collides with a built-in secret; built-in secrets are always available, so remove it", name)
 				continue
 			case seen[name]:
-				fail(where, fmt.Sprintf("%q is listed twice", name), "remove the duplicate from lclaw.toml")
+				fail(where, "%q is listed twice", name)
 				continue
 			}
 			seen[name] = true
@@ -58,17 +62,6 @@ func NewCatalogue(builtin []SecretSpec, declared map[string][]string) (Catalogue
 			entries = append(entries, SecretSpec{Name: name, Source: User, Machines: []Role{role}, Rotatable: true})
 			byName[name] = len(entries) - 1
 		}
-	}
-
-	unknown := make([]string, 0)
-	for machine := range declared {
-		if _, ok := ParseRole(machine); !ok {
-			unknown = append(unknown, machine)
-		}
-	}
-	sort.Strings(unknown)
-	for _, machine := range unknown {
-		fail("machines."+machine, "unknown machine", "machines are infra, services and agent")
 	}
 
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })

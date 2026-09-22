@@ -3,6 +3,7 @@ package keychain
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -122,6 +123,36 @@ func TestPutRedactsHexValueOnFailure(t *testing.T) {
 	var ee *exec.ExitError
 	if !errors.As(err, &ee) || ee.Code != 1 {
 		t.Fatalf("errors.As = %v, %v, want an *exec.ExitError{Code: 1}", ee, err)
+	}
+}
+
+// TestPutRedactsATruncatedHexValue covers the same echo after the exec
+// adapter has kept only the last 1024 bytes of stderr. A value over about
+// 500 bytes leaves a fragment of its hexadecimal encoding behind rather than
+// the whole of it, which a whole-string match does not catch.
+func TestPutRedactsATruncatedHexValue(t *testing.T) {
+	path := existingKeychain(t)
+	value := bytes.Repeat([]byte("sk-abcdef01"), 64) // 704 bytes, 1408 hex characters
+	hexValue := hex.EncodeToString(value)
+	f := exec.NewFake()
+	// What the echoed stdin line looks like once tail() has dropped
+	// everything before the last 1024 bytes: the -X argument starts
+	// mid-value.
+	truncated := hexValue[len(hexValue)-900:] + ` "` + path + `"`
+	f.Script("security", []string{"-i"}, exec.Response{Err: &exec.ExitError{
+		Code:   1,
+		Stderr: truncated + "\nsecurity: some diagnostic message\n",
+	}})
+	err := (&Client{Runner: f}).Put(context.Background(), path, "k", value, domain.User, false)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, hexValue[len(hexValue)-900:len(hexValue)-800]) {
+		t.Fatalf("error leaks part of the hex value: %s", msg)
+	}
+	if !strings.Contains(msg, "some diagnostic message") {
+		t.Fatalf("error dropped the diagnostic line: %s", msg)
 	}
 }
 

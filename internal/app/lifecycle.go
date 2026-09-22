@@ -114,7 +114,7 @@ func (l *Lifecycle) Up(ctx context.Context, dir string, roles []domain.Role) (do
 
 	// The machine.
 	p.Step("machine", "inspecting "+domain.MachineName)
-	machineCheck, err := l.ensureMachine(ctx, top, p)
+	machineCheck, err := l.ensureMachine(ctx, dir, top, p)
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return r, ctxErr
 	}
@@ -236,7 +236,7 @@ func (l *Lifecycle) Up(ctx context.Context, dir string, roles []domain.Role) (do
 
 // ensureMachine creates the machine if it does not exist and starts it if
 // it is not running. A missing tool or a failed command is a failed check.
-func (l *Lifecycle) ensureMachine(ctx context.Context, top domain.Topology, p Progress) (domain.Check, error) {
+func (l *Lifecycle) ensureMachine(ctx context.Context, dir string, top domain.Topology, p Progress) (domain.Check, error) {
 	machines, err := l.Runtime.ListMachines(ctx)
 	if err != nil {
 		return fail("machine", err), err
@@ -258,7 +258,7 @@ func (l *Lifecycle) ensureMachine(ctx context.Context, top domain.Topology, p Pr
 			MemoryMiB: top.Machine.MemoryMiB,
 			DiskGiB:   top.Machine.DiskGiB,
 			Volumes:   top.Machine.Volumes,
-			Playbook:  domain.PlaybookFile,
+			Playbook:  filepath.Join(dir, filepath.FromSlash(domain.PlaybookFile)),
 		})
 		if err != nil {
 			return fail("machine", err), err

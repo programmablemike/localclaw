@@ -471,6 +471,35 @@ func TestStatusReportsEverything(t *testing.T) {
 	}
 }
 
+func TestStatusReportsEndpoints(t *testing.T) {
+	f := newLifecycle(servicesTopology())
+	upAll(t, f)
+	pod := f.work.pods["kuma-cp"]
+	pod.Ports = []domain.PortBinding{{ContainerPort: 5681, HostPort: 5681, Protocol: "tcp"}}
+	f.work.pods["kuma-cp"] = pod
+	r, err := f.lc.Status(context.Background(), dirArg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kuma *domain.Endpoint
+	for i := range r.Endpoints {
+		if r.Endpoints[i].Label == "Kuma dashboard" {
+			kuma = &r.Endpoints[i]
+		}
+	}
+	if kuma == nil {
+		t.Fatalf("endpoints = %+v, want the Kuma dashboard", r.Endpoints)
+	}
+	if kuma.URL != "http://localhost:5681/gui" {
+		t.Fatalf("Kuma URL = %q", kuma.URL)
+	}
+	// Endpoints are directions, not verdicts: an unreachable one must not
+	// change the report's verdict or its counts.
+	if r.Worst() != domain.Pass || r.Count(domain.Pass) != len(r.Checks) {
+		t.Fatalf("endpoints changed the verdict: worst %v, %d of %d passed", r.Worst(), r.Count(domain.Pass), len(r.Checks))
+	}
+}
+
 func TestStatusStoppedMachine(t *testing.T) {
 	f := newLifecycle(servicesTopology())
 	f.runtime.machines = []domain.Machine{{Name: "lclaw"}}

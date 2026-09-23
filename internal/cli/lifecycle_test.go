@@ -69,6 +69,12 @@ var statusReport = domain.Report{Checks: []domain.Check{
 	{Name: "services/litellm", Status: domain.Fail, Summary: "degraded: container litellm-litellm exited", Hint: "podman --connection lclaw pod logs litellm"},
 	{Name: "services/agentgateway", Status: domain.Pass, Summary: "running"},
 	{Name: "agent/openclaw", Status: domain.Warn, Summary: "absent", Hint: "run `lclaw up agent`"},
+}, Endpoints: []domain.Endpoint{
+	{Workload: "kuma-cp", Label: "Kuma dashboard", URL: "http://localhost:5681/gui"},
+	{Workload: "gateway", Label: "LocalClaw gateway", URL: "http://localhost:8080/"},
+	{Workload: "litellm", Label: "LiteLLM admin UI", Reason: "the pod is degraded"},
+	{Workload: "openclaw", Label: "OpenClaw Control UI",
+		Reason: "port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway"},
 }}
 
 func TestUpText(t *testing.T) {
@@ -176,6 +182,25 @@ func TestStatusText(t *testing.T) {
 	golden(t, "status-mixed.txt", r.stdout.Bytes())
 	if got := ExitCode(r.err); got != 1 {
 		t.Fatalf("exit code = %d, want 1", got)
+	}
+}
+
+func TestStatusJSON(t *testing.T) {
+	f := &fakeLifecycle{report: statusReport}
+	r := executeDeps(t, lifecycleDeps(f), "--output", "json", "status")
+	if !errors.Is(r.err, ErrChecksFailed) {
+		t.Fatalf("err = %v, want ErrChecksFailed for a degraded pod", r.err)
+	}
+	golden(t, "status-mixed.json", r.stdout.Bytes())
+}
+
+// A report with no endpoints, which is every report but status, must
+// render exactly as it did before endpoints existed.
+func TestReportWithoutEndpointsRendersNoEndpointSection(t *testing.T) {
+	var buf bytes.Buffer
+	renderReportText(&buf, domain.Report{Checks: []domain.Check{{Name: "machine", Status: domain.Pass, Summary: "running"}}})
+	if strings.Contains(buf.String(), "Endpoints") {
+		t.Fatalf("output = %q, want no endpoint section", buf.String())
 	}
 }
 

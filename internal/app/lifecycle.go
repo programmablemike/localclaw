@@ -447,7 +447,8 @@ func (l *Lifecycle) destroy(ctx context.Context, top domain.Topology, cat domain
 }
 
 // Status reads the machine, the networks and the pods and reports one
-// check each. It never writes.
+// check each, then the addresses the running system answers on. It never
+// writes.
 func (l *Lifecycle) Status(ctx context.Context, dir string) (domain.Report, error) {
 	var r domain.Report
 	top, _, err := l.load(dir)
@@ -482,5 +483,6 @@ func (l *Lifecycle) Status(ctx context.Context, dir string) (domain.Report, erro
 		return r, nil
 	}
 	r.Checks = append(r.Checks, domain.EvaluateWorkloads(top, domain.Roles(), pods)...)
+	r.Endpoints = domain.EvaluateEndpoints(top, domain.Roles(), pods)
 	return r, nil
 }

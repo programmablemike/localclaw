@@ -154,6 +154,52 @@ running, one per zone network and one per workload declared in
 Exit status is 1 only for a `FAIL`, so a script can tell "down" (exit 0
 with warnings) from "broken".
 
+#### Endpoints
+
+After the checks, `status` lists the addresses the running system answers
+on, under an `Endpoints` heading:
+
+```text
+Endpoints
+  Kuma dashboard       http://localhost:5681/gui
+  LocalClaw gateway    http://localhost:8080/
+  OpenClaw Control UI  unavailable: port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway
+```
+
+The host ports come from `podman pod inspect`, not from the `pod.yaml`
+files, so an address is listed only when the machine is really publishing
+it. An endpoint that cannot be opened is listed with its reason instead of
+a URL, rather than being hidden: knowing that the Control UI is
+deliberately unreachable is the answer to "what is its address?".
+
+| Workload       | Port  | Label                  | Path   |
+| -------------- | ----- | ---------------------- | ------ |
+| `kuma-cp`      | 5681  | Kuma dashboard         | `/gui` |
+| `gateway`      | 8080  | LocalClaw gateway      | `/`    |
+| `litellm`      | 4000  | LiteLLM admin UI       | `/ui`  |
+| `agentgateway` | 15000 | Agent Gateway admin UI | `/`    |
+| `agentgateway` | 3000  | Agent Gateway proxy    | `/`    |
+| `openclaw`     | 18789 | OpenClaw Control UI    | `/`    |
+
+Only `kuma-cp` and `gateway` publish a port in the default scaffold, so on
+a healthy system they are the only two with a URL; the rest are listed with
+their reason. A workload that publishes a port this table does not describe
+is still listed, as `<workload> port <N>`, so adding a `hostPort` to a
+`pod.yaml` is enough to see it here. Only TCP carries a URL.
+
+Reasons, in the order they are decided:
+
+| Reason                                                             | Means                                                 |
+| ------------------------------------------------------------------ | ----------------------------------------------------- |
+| `the pod is not running`                                           | No such pod on the machine                            |
+| `the pod is degraded`                                              | The pod exists but a container is not running         |
+| `port <N> is not published; zones.<zone> is internal, ...`         | Deliberate: an internal zone has no route to the host |
+| `port <N> is not published to the host; add a hostPort to the pod` | The pod is healthy but nothing forwards the port      |
+
+Endpoints are directions, not verdicts: they are not checks, they never
+appear in the `N passed, N warnings, N failed` counts, and an unreachable
+one never changes the exit status.
+
 ### `doctor`
 
 Checks that the host can run LocalClaw. Every check runs regardless of
@@ -280,9 +326,26 @@ present only when non-empty. Status values are `pass`, `warn` and `fail`.
       "summary": "absent",
       "hint": "run `lclaw up agent`"
     }
+  ],
+  "endpoints": [
+    {
+      "workload": "kuma-cp",
+      "label": "Kuma dashboard",
+      "url": "http://localhost:5681/gui"
+    },
+    {
+      "workload": "openclaw",
+      "label": "OpenClaw Control UI",
+      "reason": "port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway"
+    }
   ]
 }
 ```
+
+`endpoints` is present only for `status`, and omitted when empty. Exactly
+one of `url` and `reason` is present on each entry, so a consumer branches
+on which it finds rather than on a separate flag. `endpoints` does not
+affect the top-level `status`.
 
 ### `init`
 

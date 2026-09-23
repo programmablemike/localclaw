@@ -1,0 +1,64 @@
+[
+    {
+        "Id": "b1f1c0d0e0f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6",
+        "Name": "litellm",
+        "Created": "2026-09-22T10:00:00.000000-07:00",
+        "State": "Running",
+        "Hostname": "",
+        "Labels": {
+            "app.kubernetes.io/name": "litellm",
+            "app.kubernetes.io/part-of": "localclaw"
+        },
+        "CreateInfra": true,
+        "InfraContainerID": "7c0e4d0b6d3a3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a",
+        "InfraConfig": {
+            "PortBindings": {
+                "4000/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "4000"
+                    }
+                ],
+                "9090/udp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "9090"
+                    }
+                ],
+                "1234/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "1234"
+                    }
+                ]
+            },
+            "HostNetwork": false,
+            "StaticIP": "",
+            "Networks": [
+                "lclaw-services"
+            ]
+        },
+        "NumContainers": 2
+    },
+    {
+        "Id": "c2a2d1e1f1a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7",
+        "Name": "openclaw",
+        "Created": "2026-09-22T10:01:00.000000-07:00",
+        "State": "Degraded",
+        "Hostname": "",
+        "Labels": {
+            "app.kubernetes.io/name": "openclaw",
+            "app.kubernetes.io/part-of": "localclaw"
+        },
+        "CreateInfra": true,
+        "InfraContainerID": "9e2a6f2d8f5c5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0",
+        "InfraConfig": {
+            "HostNetwork": false,
+            "StaticIP": "",
+            "Networks": [
+                "lclaw-agent"
+            ]
+        },
+        "NumContainers": 2
+    }
+]

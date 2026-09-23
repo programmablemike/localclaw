@@ -424,6 +424,25 @@ above, the [command reference](../reference/cli.md) is the fact.
   `services/ready` check rather than failing on it.
 - **`ListPods` drops the pod's infra container**, which Podman names
   `<id>-infra`, so `status` judges only the workload's own containers.
+- **`status` ends with the addresses the system answers on.** Knowing
+  every pod is running does not tell anyone where the Kuma dashboard is,
+  and the answer changes with what the machine publishes, so `status` now
+  prints an `Endpoints` list after the counts. Three decisions shaped it.
+  The host ports come from `podman pod inspect`, not from the `pod.yaml`
+  files, because a workload directory is the user's to edit and a list of
+  addresses that might refuse the connection is worse than no list; a
+  pod's `InfraConfig.PortBindings` holds only genuinely published ports,
+  which is exactly the question being asked. An endpoint that cannot be
+  opened is printed with its reason rather than hidden, because "the
+  OpenClaw Control UI is not published, and that is deliberate" is the
+  answer to where it is. And endpoints are not checks — they are
+  directions, not verdicts — so they stay out of `Worst`, out of the
+  counts and out of the exit status; a dashboard unreachable because its
+  pod is down is already a failed check, and saying so twice would only
+  inflate the numbers. Which port is a dashboard, and what path it lives
+  under, is knowledge Podman does not have, so `domain.KnownEndpoints`
+  carries it; a published port the catalogue does not describe is still
+  listed, by number.
 - **`down` of a subset reports the kept store and machine as warnings**,
   named `secrets` and `machine`, so the report says why they stayed rather
   than omitting them.

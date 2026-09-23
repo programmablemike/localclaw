@@ -3,11 +3,13 @@ package domain
 import "fmt"
 
 // Pod is what the runtime reports about one pod on the machine. Only the
-// fields the rules need are kept: the pod's name and each container's
-// state as Podman words it ("running", "exited", "created", ...).
+// fields the rules need are kept: the pod's name, each container's state
+// as Podman words it ("running", "exited", "created", ...), and the ports
+// the pod publishes on the host.
 type Pod struct {
 	Name       string
 	Containers []Container
+	Ports      []PortBinding
 }
 
 // Container is one container's name and state inside a Pod.

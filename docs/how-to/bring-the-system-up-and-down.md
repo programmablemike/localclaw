@@ -84,6 +84,23 @@ One line for the machine, one per zone network, and one per workload:
 `running`, `absent` (a warning) or `degraded` (a failure naming the
 container and its state, with the `podman` command that shows its logs).
 
+Below the counts, an `Endpoints` list gives the addresses to open on this
+host:
+
+```text
+Endpoints
+  Kuma dashboard       http://localhost:5681/gui
+  LocalClaw gateway    http://localhost:8080/
+  OpenClaw Control UI  unavailable: port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway
+```
+
+The ports come from Podman, so a URL appears only when the machine is
+really publishing it; anything you cannot open says why instead. The
+OpenClaw Control UI is the one to expect there: the agent zone is
+deliberately internal, so nothing it runs is published to the host. The
+[command reference](../reference/cli.md#endpoints) lists every endpoint and
+every reason.
+
 ### 3. Apply an edit
 
 Edit a workload's `Containerfile` or `pod.yaml` under `~/.config/lclaw`,

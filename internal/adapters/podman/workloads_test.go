@@ -116,16 +116,63 @@ func TestListPods(t *testing.T) {
 	f := exec.NewFake()
 	f.Script("podman", []string{"--connection", "lclaw", "pod", "ps", "--filter", "label=app.kubernetes.io/part-of=localclaw", "--format", "json"},
 		exec.Response{Stdout: fixture(t, "pod-ps.json")})
+	f.Script("podman", []string{"--connection", "lclaw", "pod", "inspect", "litellm", "openclaw", "--format", "json"},
+		exec.Response{Stdout: fixture(t, "pod-inspect.json")})
 	got, err := (&Client{Runner: f}).ListPods(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The fixture's bindings are out of order and one is UDP: ports come
+	// back sorted, and the protocol is kept rather than assumed.
 	want := []domain.Pod{
-		{Name: "litellm", Containers: []domain.Container{{Name: "litellm-litellm", State: "running"}}},
+		{
+			Name:       "litellm",
+			Containers: []domain.Container{{Name: "litellm-litellm", State: "running"}},
+			Ports: []domain.PortBinding{
+				{ContainerPort: 1234, HostPort: 1234, Protocol: "tcp"},
+				{ContainerPort: 4000, HostPort: 4000, Protocol: "tcp"},
+				{ContainerPort: 9090, HostPort: 9090, Protocol: "udp"},
+			},
+		},
+		// An InfraConfig with no PortBindings publishes nothing.
 		{Name: "openclaw", Containers: []domain.Container{{Name: "openclaw-openclaw", State: "exited"}}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("ListPods() =\n%+v\nwant\n%+v", got, want)
+	}
+}
+
+func TestListPodsInspectBadJSON(t *testing.T) {
+	f := exec.NewFake()
+	f.Script("podman", []string{"--connection", "lclaw", "pod", "ps", "--filter", "label=app.kubernetes.io/part-of=localclaw", "--format", "json"},
+		exec.Response{Stdout: fixture(t, "pod-ps.json")})
+	f.Script("podman", []string{"--connection", "lclaw", "pod", "inspect", "litellm", "openclaw", "--format", "json"},
+		exec.Response{Stdout: "{nope"})
+	if _, err := (&Client{Runner: f}).ListPods(context.Background()); err == nil || !strings.HasPrefix(err.Error(), "podman: inspect pods: decode: ") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestParsePortKey(t *testing.T) {
+	cases := []struct {
+		key   string
+		port  int
+		proto string
+		ok    bool
+	}{
+		{"5681/tcp", 5681, "tcp", true},
+		{"9090/udp", 9090, "udp", true},
+		{"5681", 0, "", false},   // no protocol
+		{"5681/", 0, "", false},  // empty protocol
+		{"x/tcp", 0, "", false},  // not a number
+		{"0/tcp", 0, "", false},  // not a port
+		{"-1/tcp", 0, "", false}, // not a port
+	}
+	for _, c := range cases {
+		port, proto, ok := parsePortKey(c.key)
+		if port != c.port || proto != c.proto || ok != c.ok {
+			t.Errorf("parsePortKey(%q) = %d, %q, %v; want %d, %q, %v", c.key, port, proto, ok, c.port, c.proto, c.ok)
+		}
 	}
 }
 

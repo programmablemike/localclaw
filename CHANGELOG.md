@@ -18,6 +18,16 @@ versions follow [Semantic Versioning](https://semver.org).
   removes the machine. `status` reports the machine, the networks and every
   pod. All three report one check per step, as text or JSON, with progress
   on standard error.
+- `lclaw status` ends with an `Endpoints` list: the addresses on this host
+  that reach the Kuma dashboard, the gateway, the LiteLLM and Agent Gateway
+  UIs and the OpenClaw Control UI. Host ports are read from `podman pod
+  inspect` rather than the `pod.yaml` files, so a URL is listed only when
+  the machine is really publishing it; an endpoint that cannot be opened is
+  listed with the reason instead, which is how the Control UI reports that
+  the agent zone is internal by design. Endpoints are not checks: they
+  never enter the pass/warn/fail counts and never change the exit status.
+  JSON output gains an `endpoints` array whose entries carry either `url`
+  or `reason`.
 - The `adapters/litellm` package, which mints and revokes the agent's key
   through `podman exec` so the master key never leaves the machine.
 - Every default Pod file carries CPU and memory limits, and the `openclaw`

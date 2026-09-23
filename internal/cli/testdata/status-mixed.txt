@@ -12,3 +12,9 @@ WARN  agent/openclaw         absent
       hint: run `lclaw up agent`
 
 8 passed, 1 warnings, 1 failed
+
+Endpoints
+  Kuma dashboard       http://localhost:5681/gui
+  LocalClaw gateway    http://localhost:8080/
+  LiteLLM admin UI     unavailable: the pod is degraded
+  OpenClaw Control UI  unavailable: port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway

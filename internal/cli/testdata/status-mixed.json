@@ -1,0 +1,79 @@
+{
+  "status": "fail",
+  "checks": [
+    {
+      "name": "machine",
+      "status": "pass",
+      "summary": "running"
+    },
+    {
+      "name": "network/infra",
+      "status": "pass",
+      "summary": "present"
+    },
+    {
+      "name": "network/services",
+      "status": "pass",
+      "summary": "present"
+    },
+    {
+      "name": "network/agent",
+      "status": "pass",
+      "summary": "present (internal)"
+    },
+    {
+      "name": "infra/kuma-cp",
+      "status": "pass",
+      "summary": "running"
+    },
+    {
+      "name": "infra/gateway",
+      "status": "pass",
+      "summary": "running"
+    },
+    {
+      "name": "services/litellm-db",
+      "status": "pass",
+      "summary": "running"
+    },
+    {
+      "name": "services/litellm",
+      "status": "fail",
+      "summary": "degraded: container litellm-litellm exited",
+      "hint": "podman --connection lclaw pod logs litellm"
+    },
+    {
+      "name": "services/agentgateway",
+      "status": "pass",
+      "summary": "running"
+    },
+    {
+      "name": "agent/openclaw",
+      "status": "warn",
+      "summary": "absent",
+      "hint": "run `lclaw up agent`"
+    }
+  ],
+  "endpoints": [
+    {
+      "workload": "kuma-cp",
+      "label": "Kuma dashboard",
+      "url": "http://localhost:5681/gui"
+    },
+    {
+      "workload": "gateway",
+      "label": "LocalClaw gateway",
+      "url": "http://localhost:8080/"
+    },
+    {
+      "workload": "litellm",
+      "label": "LiteLLM admin UI",
+      "reason": "the pod is degraded"
+    },
+    {
+      "workload": "openclaw",
+      "label": "OpenClaw Control UI",
+      "reason": "port 18789 is not published; zones.agent is internal, so the host reaches it only through the gateway"
+    }
+  ]
+}

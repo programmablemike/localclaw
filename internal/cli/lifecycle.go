@@ -119,7 +119,7 @@ func downCommand(d Deps) *ucli.Command {
 func statusCommand(d Deps) *ucli.Command {
 	return &ucli.Command{
 		Name:         "status",
-		Usage:        "report the machine, the zone networks and every workload's pod",
+		Usage:        "report the machine, the zone networks, every workload's pod and the addresses they answer on",
 		OnUsageError: onUsageError,
 		Action: func(ctx context.Context, cmd *ucli.Command) error {
 			if cmd.Args().Present() {

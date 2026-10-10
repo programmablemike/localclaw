@@ -34,10 +34,18 @@ type Check struct {
 	Hint    string
 }
 
-// Report is an ordered list of checks. Order is fixed by the producer so
-// people and scripts see the same shape every run.
+// Report is an ordered list of checks, and optionally the addresses the
+// running system answers on. Order is fixed by the producer so people and
+// scripts see the same shape every run.
+//
+// Endpoints are deliberately not checks: they are directions, not
+// verdicts, so they stay out of Worst and Count and cannot change a
+// command's exit status. A dashboard that is unreachable because its pod
+// is down is already reported as a failed check; saying so twice would
+// only inflate the counts.
 type Report struct {
-	Checks []Check
+	Checks    []Check
+	Endpoints []Endpoint
 }
 
 // Worst returns the highest Status in the report, or Pass when empty.
